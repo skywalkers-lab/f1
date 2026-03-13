@@ -43,7 +43,26 @@ def test_store_builds_leaderboard_pace_and_strategy():
     assert snapshot["player"]["lap"] == 5
     assert len(snapshot["leaderboard"]) > 0
     assert snapshot["pace"]["best_lap_ms"] > 0
-    assert snapshot["strategy"]["action"] in {"PIT_NOW", "STAY_OUT"}
+    assert snapshot["strategy"]["action"] in {"PIT_NOW", "PIT_IN_1", "PIT_IN_2", "STAY_OUT"}
+    assert len(snapshot["strategy"]["candidates"]) == 4
+
+
+def test_store_ignores_stale_frames():
+    store = StateStore()
+    data_newer = HEADER_STRUCT.pack(2025, 25, 1, 0, 1, 3, 7, 0.0, 20, 20, 0, 255) + b"EVN1"
+    data_older = HEADER_STRUCT.pack(2025, 25, 1, 0, 1, 3, 7, 0.0, 10, 10, 0, 255) + b"EVN2"
+    store.apply(route_packet(data_newer))
+    snapshot = store.apply(route_packet(data_older))
+    assert snapshot["last_event_summary"] == "EVN1"
+    assert snapshot["ingest_stats"]["last_packet_type"] == "stale_packet"
+
+
+def test_strategy_matrix_sc_case_prefers_early_pit_option():
+    store = StateStore()
+    session_payload = bytes([1, 0, 0, 50, 3, 4, 0, 2, 0])
+    session_data = HEADER_STRUCT.pack(2025, 25, 1, 0, 1, 1, 8, 0.0, 2, 2, 0, 255) + session_payload
+    snapshot = store.apply(route_packet(session_data))
+    assert snapshot["strategy"]["action"] in {"PIT_NOW", "PIT_IN_1", "PIT_IN_2", "STAY_OUT"}
 
 
 def test_ws_payload_shape_sanity():
@@ -55,3 +74,5 @@ def test_ws_payload_shape_sanity():
     assert "minimap" in payload
     assert "leaderboard" in payload
     assert "strategy" in payload
+    assert "duplicate_packets" in payload["ingest_stats"]
+    assert "decode_errors" in payload["ingest_stats"]

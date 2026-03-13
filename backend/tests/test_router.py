@@ -43,9 +43,22 @@ def test_router_unknown_packet():
 
 
 def test_router_truncated_known_packet_returns_diagnostic():
-    # Header says lap data, but payload is intentionally too short for 22 cars
     data = mk_header(2) + b"\x00" * 8
     routed = route_packet(data)
     assert routed.decoded is None
     assert routed.diagnostic is not None
     assert routed.diagnostic.startswith("decode_error:")
+
+
+def test_router_range_error_returns_diagnostic():
+    # Invalid lap position > CAR_COUNT should return range-based decode diagnostic.
+    lap_struct = Struct("<IIHBBB")
+    rows = []
+    for i in range(CAR_COUNT):
+        position = 99 if i == 0 else i + 1
+        rows.append(lap_struct.pack(90000 + i, 45000 + i, 100, position, 10 + i, 0))
+    data = mk_header(2) + b"".join(rows)
+    routed = route_packet(data)
+    assert routed.decoded is None
+    assert routed.diagnostic is not None
+    assert "range_error" in routed.diagnostic

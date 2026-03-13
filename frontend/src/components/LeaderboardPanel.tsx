@@ -12,10 +12,10 @@ export function LeaderboardPanel({ state }: Props) {
 
   return (
     <section className="panel">
-      <div className="panel-header"><h3>Leaderboard</h3><div className="small">RAW position/lap + EST gaps</div></div>
+      <div className="panel-header"><h3>Leaderboard <span className="badge-raw">RAW</span><span className="badge-est">EST</span></h3><div className="small">Position/Lap RAW, Gap EST</div></div>
       <table className="table">
         <thead>
-          <tr><th>Pos</th><th>Drv</th><th>Gap EST</th><th>Tyre</th><th>Pit</th><th>Last</th></tr>
+          <tr><th>Pos(RAW)</th><th>Drv(RAW)</th><th>Gap(EST)</th><th>Tyre(RAW)</th><th>Pit(RAW)</th><th>Last(RAW)</th></tr>
         </thead>
         <tbody>
           {rows.slice(0, 12).map((r) => {

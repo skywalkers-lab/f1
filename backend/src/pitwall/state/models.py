@@ -7,6 +7,8 @@ class IngestStats:
     packets_received: int = 0
     packets_decoded: int = 0
     packets_dropped: int = 0
+    duplicate_packets: int = 0
+    decode_errors: int = 0
     last_packet_type: str = ""
 
 
@@ -58,12 +60,20 @@ class PaceSummary:
 
 
 @dataclass
+class StrategyCandidateState:
+    action: str
+    score: float
+    reason: str
+
+
+@dataclass
 class StrategyState:
     action: str = "STAY_OUT"
     score: float = 0.0
     confidence: str = "low"
     reason: str = "No recommendation yet"
     key_inputs: dict = field(default_factory=dict)
+    candidates: list[StrategyCandidateState] = field(default_factory=list)
 
 
 @dataclass

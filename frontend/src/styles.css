@@ -96,3 +96,14 @@ body {
 }
 
 .footer-note { margin-top: 6px; font-size: 11px; color: var(--muted); }
+
+.badge-raw, .badge-est {
+  display: inline-block;
+  border: 1px solid var(--border);
+  padding: 1px 4px;
+  font-size: 10px;
+  margin-left: 6px;
+  font-family: 'Consolas', monospace;
+}
+.badge-raw { color: var(--ok); }
+.badge-est { color: var(--warn); }

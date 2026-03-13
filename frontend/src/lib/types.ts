@@ -37,6 +37,7 @@ export type AppState = {
     confidence: string
     reason: string
     key_inputs: Record<string, number | string>
+    candidates: Array<{ action: string; score: number; reason: string }>
   }
   minimap: {
     mode: 'live_trace' | 'prebuilt_map'
@@ -50,6 +51,8 @@ export type AppState = {
     packets_received: number
     packets_decoded: number
     packets_dropped: number
+    duplicate_packets: number
+    decode_errors: number
     last_packet_type: string
   }
   last_update_iso: string

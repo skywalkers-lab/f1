@@ -36,6 +36,11 @@ def _ensure_size(data: bytes, needed: int) -> None:
         raise PacketDecodeError(f"truncated packet: expected {needed} bytes got {len(data)}")
 
 
+def _ensure_range(name: str, value: int | float, minimum: int | float, maximum: int | float) -> None:
+    if value < minimum or value > maximum:
+        raise PacketDecodeError(f"range_error:{name}={value} expected {minimum}..{maximum}")
+
+
 def decode_motion(data: bytes) -> DecodedPacket:
     offset = HEADER_STRUCT.size
     _ensure_size(data, offset + (MOTION_PLAYER_STRUCT.size * CAR_COUNT))
@@ -43,9 +48,9 @@ def decode_motion(data: bytes) -> DecodedPacket:
     for car_index in range(CAR_COUNT):
         car_offset = offset + (car_index * MOTION_PLAYER_STRUCT.size)
         world_x, _world_y, world_z = MOTION_PLAYER_STRUCT.unpack_from(data, car_offset)
-        cars.append(
-            CarMotionData(car_index=car_index, world_position_x=world_x, world_position_z=world_z)
-        )
+        _ensure_range("world_x", world_x, -10000.0, 10000.0)
+        _ensure_range("world_z", world_z, -10000.0, 10000.0)
+        cars.append(CarMotionData(car_index=car_index, world_position_x=world_x, world_position_z=world_z))
     return DecodedPacket(kind="motion", payload=MotionPacket(cars=cars))
 
 
@@ -55,6 +60,10 @@ def decode_session(data: bytes) -> DecodedPacket:
     weather, _track_temp, _air_temp, total_laps, track_id = SESSION_STRUCT.unpack_from(data, offset)
     session_type = data[offset + SESSION_STRUCT.size]
     safety_car_status = data[offset + SESSION_STRUCT.size + 2]
+    _ensure_range("weather", weather, 0, 7)
+    _ensure_range("total_laps", total_laps, 0, 255)
+    _ensure_range("session_type", session_type, 0, 13)
+    _ensure_range("safety_car_status", safety_car_status, 0, 3)
     payload = SessionPacket(
         session_type=session_type,
         track_id=track_id,
@@ -74,6 +83,8 @@ def decode_lap_data(data: bytes) -> DecodedPacket:
         last_lap_ms, current_lap_ms, _sector1, car_position, current_lap_num, _unused = LAP_PLAYER_STRUCT.unpack_from(
             data, car_offset
         )
+        _ensure_range("car_position", car_position, 0, CAR_COUNT)
+        _ensure_range("current_lap_num", current_lap_num, 0, 255)
         cars.append(
             LapDataEntry(
                 car_index=car_index,
@@ -98,6 +109,8 @@ def decode_car_telemetry(data: bytes, player_index: int) -> DecodedPacket:
     offset = HEADER_STRUCT.size + (CAR_TELEMETRY_PLAYER_STRUCT.size * player_index)
     _ensure_size(data, offset + CAR_TELEMETRY_PLAYER_STRUCT.size)
     speed, throttle, _steer, _brake, _clutch, drs = CAR_TELEMETRY_PLAYER_STRUCT.unpack_from(data, offset)
+    _ensure_range("speed", speed, 0, 450)
+    _ensure_range("throttle", throttle, 0.0, 1.0)
     payload = CarTelemetryPacket(
         player=CarTelemetryPlayer(speed=speed, throttle=throttle, drs=drs, ers_store_energy=0.0)
     )
@@ -109,6 +122,8 @@ def decode_car_status(data: bytes, player_index: int) -> DecodedPacket:
     _ensure_size(data, offset + CAR_STATUS_PLAYER_STRUCT.size + 1)
     fuel_in_tank, _fuel_mix, _fuel_lap, ers_store_energy = CAR_STATUS_PLAYER_STRUCT.unpack_from(data, offset)
     visual_tyre_compound = data[offset + CAR_STATUS_PLAYER_STRUCT.size]
+    _ensure_range("fuel_in_tank", fuel_in_tank, 0.0, 120.0)
+    _ensure_range("ers_store_energy", ers_store_energy, 0.0, 5_000_000.0)
     payload = CarStatusPacket(
         player=CarStatusPlayer(
             fuel_in_tank=fuel_in_tank,
