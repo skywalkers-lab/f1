@@ -2,51 +2,50 @@ import { AppState } from '../lib/types'
 
 type Props = { state: AppState | null }
 
-const W = 520
-const H = 320
-const PAD = 14
+const W = 460
+const H = 300
+const PAD = 12
 
-function mapX(x: number): number {
-  return PAD + x * (W - PAD * 2)
-}
-
-function mapY(y: number): number {
-  return PAD + y * (H - PAD * 2)
-}
+function mapX(x: number): number { return PAD + x * (W - PAD * 2) }
+function mapY(y: number): number { return PAD + y * (H - PAD * 2) }
 
 export function MinimapPanel({ state }: Props) {
   const trace = state?.minimap.track_trace ?? []
   const cars = state?.minimap.cars ?? []
   const playerIdx = state?.minimap.player_car_index ?? -1
 
-  const path = trace
-    .map((p, i) => `${i === 0 ? 'M' : 'L'} ${mapX(p.x).toFixed(1)} ${mapY(p.y).toFixed(1)}`)
-    .join(' ')
+  const sector1 = trace.slice(0, Math.floor(trace.length / 3))
+  const sector2 = trace.slice(Math.floor(trace.length / 3), Math.floor((trace.length * 2) / 3))
+  const sector3 = trace.slice(Math.floor((trace.length * 2) / 3))
+
+  const mkPath = (pts: Array<{ x: number; y: number }>) => pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${mapX(p.x)} ${mapY(p.y)}`).join(' ')
 
   return (
-    <section style={{ marginTop: 16, background: '#121821', border: '1px solid #263345', borderRadius: 8, padding: 12 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-        <h3 style={{ margin: 0 }}>Circuit Minimap</h3>
-        <div style={{ color: '#9fb2ca' }}>Source: {state?.minimap.mode ?? 'live_trace'}</div>
+    <section className="panel">
+      <div className="panel-header">
+        <h3>Track Map</h3>
+        <div className="small">Source: {state?.minimap.mode ?? 'live_trace'}</div>
       </div>
-      <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{ background: '#0a0f16', borderRadius: 6 }}>
-        {path ? <path d={path} fill="none" stroke="#5f728c" strokeWidth={2} /> : null}
+      <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{ background: '#090d13', display: 'block' }}>
+        {sector1.length > 1 && <path d={mkPath(sector1)} fill="none" stroke="#2f7bb2" strokeWidth={2} />}
+        {sector2.length > 1 && <path d={mkPath(sector2)} fill="none" stroke="#2f9b70" strokeWidth={2} />}
+        {sector3.length > 1 && <path d={mkPath(sector3)} fill="none" stroke="#8267ff" strokeWidth={2} />}
         {cars.map((car) => (
-          <circle
+          <rect
             key={car.car_index}
-            cx={mapX(car.x)}
-            cy={mapY(car.y)}
-            r={car.car_index === playerIdx ? 6 : 4}
-            fill={car.car_index === playerIdx ? '#ff4d4d' : '#48c0ff'}
-            stroke={car.car_index === playerIdx ? '#ffe5e5' : '#d9f2ff'}
-            strokeWidth={1}
+            x={mapX(car.x) - (car.car_index === playerIdx ? 4 : 3)}
+            y={mapY(car.y) - (car.car_index === playerIdx ? 4 : 3)}
+            width={car.car_index === playerIdx ? 8 : 6}
+            height={car.car_index === playerIdx ? 8 : 6}
+            fill={car.car_index === playerIdx ? '#ff5d5d' : '#48c0ff'}
           />
         ))}
       </svg>
-      <div style={{ marginTop: 8, color: '#9fb2ca', fontSize: 12 }}>
-        {trace.length === 0
-          ? 'Track outline is building from live motion samples. Car dots render immediately when motion packets arrive.'
-          : `Track trace points: ${trace.length}`}
+      <div className="footer-note">
+        {trace.length === 0 ? 'Trace building from live motion samples; rendering car dots immediately.' : `Trace points ${trace.length} | Cars ${cars.length}/22 | Player #${playerIdx}`}
+      </div>
+      <div className="footer-note">
+        Track bounds X[{state?.minimap.transform.min_x.toFixed(1) ?? '-'}, {state?.minimap.transform.max_x.toFixed(1) ?? '-'}] Z[{state?.minimap.transform.min_z.toFixed(1) ?? '-'}, {state?.minimap.transform.max_z.toFixed(1) ?? '-'}]
       </div>
     </section>
   )
