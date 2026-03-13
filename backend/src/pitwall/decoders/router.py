@@ -40,19 +40,22 @@ def route_packet(data: bytes) -> RoutedPacket:
     except ValueError:
         return RoutedPacket(header=header, decoded=None, diagnostic="unknown packet id")
 
-    if packet_id == PacketId.MOTION:
-        return RoutedPacket(header=header, decoded=decode_motion(data))
-    if packet_id == PacketId.SESSION:
-        return RoutedPacket(header=header, decoded=decode_session(data))
-    if packet_id == PacketId.LAP_DATA:
-        return RoutedPacket(header=header, decoded=decode_lap_data(data))
-    if packet_id == PacketId.EVENT:
-        return RoutedPacket(header=header, decoded=decode_event(data))
-    if packet_id == PacketId.CAR_TELEMETRY:
-        return RoutedPacket(
-            header=header, decoded=decode_car_telemetry(data, header.player_car_index)
-        )
-    if packet_id == PacketId.CAR_STATUS:
-        return RoutedPacket(header=header, decoded=decode_car_status(data, header.player_car_index))
+    try:
+        if packet_id == PacketId.MOTION:
+            return RoutedPacket(header=header, decoded=decode_motion(data))
+        if packet_id == PacketId.SESSION:
+            return RoutedPacket(header=header, decoded=decode_session(data))
+        if packet_id == PacketId.LAP_DATA:
+            return RoutedPacket(header=header, decoded=decode_lap_data(data))
+        if packet_id == PacketId.EVENT:
+            return RoutedPacket(header=header, decoded=decode_event(data))
+        if packet_id == PacketId.CAR_TELEMETRY:
+            return RoutedPacket(
+                header=header, decoded=decode_car_telemetry(data, header.player_car_index)
+            )
+        if packet_id == PacketId.CAR_STATUS:
+            return RoutedPacket(header=header, decoded=decode_car_status(data, header.player_car_index))
+    except PacketDecodeError as exc:
+        return RoutedPacket(header=header, decoded=None, diagnostic=f"decode_error:{exc}")
 
     return RoutedPacket(header=header, decoded=None, diagnostic="packet id not implemented")

@@ -40,3 +40,12 @@ def test_router_unknown_packet():
     routed = route_packet(data)
     assert routed.decoded is None
     assert routed.diagnostic == "unknown packet id"
+
+
+def test_router_truncated_known_packet_returns_diagnostic():
+    # Header says lap data, but payload is intentionally too short for 22 cars
+    data = mk_header(2) + b"\x00" * 8
+    routed = route_packet(data)
+    assert routed.decoded is None
+    assert routed.diagnostic is not None
+    assert routed.diagnostic.startswith("decode_error:")
