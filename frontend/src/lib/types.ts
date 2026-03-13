@@ -13,6 +13,30 @@ export type AppState = {
     tyre_compound: string
     fuel: number
     ers: number
+    last_lap_ms: number
+    current_lap_ms: number
+  }
+  leaderboard: Array<{
+    position: number
+    car_index: number
+    driver_code: string
+    gap_to_player_s: number
+    tyre_compound: string
+    is_pitting: boolean
+    last_lap_ms: number
+  }>
+  pace: {
+    best_lap_ms: number
+    avg_lap_ms: number
+    consistency_pct: number
+    recent: Array<{ lap: number; lap_time_ms: number }>
+  }
+  strategy: {
+    action: string
+    score: number
+    confidence: string
+    reason: string
+    key_inputs: Record<string, number | string>
   }
   minimap: {
     mode: 'live_trace' | 'prebuilt_map'

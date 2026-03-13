@@ -51,14 +51,17 @@ class SessionPacket:
 
 
 @dataclass(frozen=True)
-class LapDataPlayer:
+class LapDataEntry:
+    car_index: int
     current_lap_num: int
     car_position: int
+    current_lap_time_ms: int
+    last_lap_time_ms: int
 
 
 @dataclass(frozen=True)
 class LapDataPacket:
-    player: LapDataPlayer
+    cars: list[LapDataEntry]
 
 
 @dataclass(frozen=True)

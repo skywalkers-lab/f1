@@ -24,3 +24,6 @@ class WebSocketHub:
                 await client.send_json(payload)
             except Exception:
                 await self.disconnect(client)
+
+    async def heartbeat(self) -> None:
+        await self.broadcast({"type": "heartbeat"})

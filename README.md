@@ -10,6 +10,18 @@ pip install -e .[dev]
 uvicorn pitwall.main:app --host 127.0.0.1 --port 8765
 ```
 
+### Optional replay mode at startup
+
+```bash
+PITWALL_REPLAY_MODE=true PITWALL_REPLAY_PATH=./data/raw_packets.log PITWALL_REPLAY_SPEED=2.0 uvicorn pitwall.main:app --host 127.0.0.1 --port 8765
+```
+
+### Trigger replay via API
+
+```bash
+curl -X POST "http://127.0.0.1:8765/replay/start?path=./data/raw_packets.log&speed=2.0"
+```
+
 ## Frontend
 
 ```bash
@@ -18,7 +30,7 @@ npm install
 npm run dev
 ```
 
-Frontend expects backend WebSocket at `ws://127.0.0.1:8765/ws`.
+Frontend expects backend WebSocket at `ws://127.0.0.1:8765/ws` with auto-reconnect + heartbeat support.
 
 ## Tests
 
@@ -27,13 +39,8 @@ cd backend
 pytest
 ```
 
-## Phase 4 MVP plan update: circuit minimap
+## A/B/C upgrades implemented
 
-- Motion packet (`packet_id=0`) is now part of decoder priority and updates normalized world positions for up to 22 cars.
-- Minimap pipeline is separated into:
-  1. raw motion decoder (`decoders/packets.py::decode_motion`)
-  2. normalized car world positions (`decoders/models.py::MotionPacket`)
-  3. minimap coordinate transform (`state/minimap.py::MinimapTransformer`)
-  4. frontend minimap renderer (`frontend/src/components/MinimapPanel.tsx`)
-- First implementation uses `live_trace` mode and builds track outline dynamically from sampled `m_worldPositionX`/`m_worldPositionZ` values.
-- UI explicitly shows minimap source mode (`live_trace` vs future `prebuilt_map`) and renders partial trace + car dots even when outline is incomplete.
+- A: Lap/session/status parsing was expanded, leaderboard + pace now derived in backend state.
+- B: Explainable strategy engine now scores candidate race action and emits confidence/reason/key inputs.
+- C: WebSocket heartbeat/reconnect and replay execution path were added with replay regression tests.

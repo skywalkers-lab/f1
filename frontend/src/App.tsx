@@ -15,8 +15,8 @@ export default function App() {
   const [state, setState] = useState<AppState | null>(null)
 
   useEffect(() => {
-    const ws = connectState(setState, setStatus)
-    return () => ws.close()
+    const disconnect = connectState(setState, setStatus)
+    return () => disconnect()
   }, [])
 
   return (

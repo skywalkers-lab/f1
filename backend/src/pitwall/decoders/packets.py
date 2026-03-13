@@ -8,8 +8,8 @@ from pitwall.decoders.models import (
     CarTelemetryPacket,
     CarTelemetryPlayer,
     EventPacket,
+    LapDataEntry,
     LapDataPacket,
-    LapDataPlayer,
     MotionPacket,
     SessionPacket,
 )
@@ -22,10 +22,10 @@ class DecodedPacket:
 
 
 # SPEC ASSUMPTION: subset offsets are aligned with F1 24 UDP spec. TODO: verify against official F1 25 docs.
+CAR_COUNT = 22
 MOTION_PLAYER_STRUCT = Struct("<fff")  # worldPositionX, worldPositionY, worldPositionZ
-MOTION_CAR_COUNT = 22
 SESSION_STRUCT = Struct("<BBBBB")  # weather, trackTemp, airTemp, totalLaps, trackId
-LAP_PLAYER_STRUCT = Struct("<IIHB")  # lastLapTimeMs, currentLapTimeMs, sector1TimeMsPart, carPosition
+LAP_PLAYER_STRUCT = Struct("<IIHBBB")  # lastLapTimeMs, currentLapTimeMs, sector1PartMs, carPosition, currentLap, _unused
 EVENT_STRUCT = Struct("<4s")
 CAR_TELEMETRY_PLAYER_STRUCT = Struct("<HfffBb")  # speed, throttle, steer, brake, clutch, drs
 CAR_STATUS_PLAYER_STRUCT = Struct("<fBff")  # fuelInTank, fuelMix, fuelLap, ersStoreEnergy
@@ -38,29 +38,25 @@ def _ensure_size(data: bytes, needed: int) -> None:
 
 def decode_motion(data: bytes) -> DecodedPacket:
     offset = HEADER_STRUCT.size
-    _ensure_size(data, offset + (MOTION_PLAYER_STRUCT.size * MOTION_CAR_COUNT))
+    _ensure_size(data, offset + (MOTION_PLAYER_STRUCT.size * CAR_COUNT))
     cars: list[CarMotionData] = []
-    for car_index in range(MOTION_CAR_COUNT):
+    for car_index in range(CAR_COUNT):
         car_offset = offset + (car_index * MOTION_PLAYER_STRUCT.size)
         world_x, _world_y, world_z = MOTION_PLAYER_STRUCT.unpack_from(data, car_offset)
         cars.append(
-            CarMotionData(
-                car_index=car_index,
-                world_position_x=world_x,
-                world_position_z=world_z,
-            )
+            CarMotionData(car_index=car_index, world_position_x=world_x, world_position_z=world_z)
         )
     return DecodedPacket(kind="motion", payload=MotionPacket(cars=cars))
 
 
 def decode_session(data: bytes) -> DecodedPacket:
     offset = HEADER_STRUCT.size
-    _ensure_size(data, offset + SESSION_STRUCT.size + 3)
+    _ensure_size(data, offset + SESSION_STRUCT.size + 4)
     weather, _track_temp, _air_temp, total_laps, track_id = SESSION_STRUCT.unpack_from(data, offset)
-    # read safety car status from later known field proxy (assumed offset)
+    session_type = data[offset + SESSION_STRUCT.size]
     safety_car_status = data[offset + SESSION_STRUCT.size + 2]
     payload = SessionPacket(
-        session_type=0,  # TODO: decode exact field
+        session_type=session_type,
         track_id=track_id,
         weather=weather,
         safety_car_status=safety_car_status,
@@ -69,12 +65,25 @@ def decode_session(data: bytes) -> DecodedPacket:
     return DecodedPacket(kind="session", payload=payload)
 
 
-def decode_lap_data(data: bytes, player_index: int) -> DecodedPacket:
-    offset = HEADER_STRUCT.size + (LAP_PLAYER_STRUCT.size * player_index)
-    _ensure_size(data, offset + LAP_PLAYER_STRUCT.size)
-    _last, _current, _sector, position = LAP_PLAYER_STRUCT.unpack_from(data, offset)
-    payload = LapDataPacket(player=LapDataPlayer(current_lap_num=0, car_position=position))
-    return DecodedPacket(kind="lap_data", payload=payload)
+def decode_lap_data(data: bytes) -> DecodedPacket:
+    offset = HEADER_STRUCT.size
+    _ensure_size(data, offset + LAP_PLAYER_STRUCT.size * CAR_COUNT)
+    cars: list[LapDataEntry] = []
+    for car_index in range(CAR_COUNT):
+        car_offset = offset + (LAP_PLAYER_STRUCT.size * car_index)
+        last_lap_ms, current_lap_ms, _sector1, car_position, current_lap_num, _unused = LAP_PLAYER_STRUCT.unpack_from(
+            data, car_offset
+        )
+        cars.append(
+            LapDataEntry(
+                car_index=car_index,
+                current_lap_num=current_lap_num,
+                car_position=car_position,
+                current_lap_time_ms=current_lap_ms,
+                last_lap_time_ms=last_lap_ms,
+            )
+        )
+    return DecodedPacket(kind="lap_data", payload=LapDataPacket(cars=cars))
 
 
 def decode_event(data: bytes) -> DecodedPacket:

@@ -45,7 +45,7 @@ def route_packet(data: bytes) -> RoutedPacket:
     if packet_id == PacketId.SESSION:
         return RoutedPacket(header=header, decoded=decode_session(data))
     if packet_id == PacketId.LAP_DATA:
-        return RoutedPacket(header=header, decoded=decode_lap_data(data, header.player_car_index))
+        return RoutedPacket(header=header, decoded=decode_lap_data(data))
     if packet_id == PacketId.EVENT:
         return RoutedPacket(header=header, decoded=decode_event(data))
     if packet_id == PacketId.CAR_TELEMETRY:
