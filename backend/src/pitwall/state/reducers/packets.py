@@ -15,6 +15,8 @@ def reduce_motion(state: AppState, minimap: MinimapTransformer, payload: object,
 def reduce_session(state: AppState, payload: object) -> None:
     state.track = f"TRACK_{payload.track_id}"
     state.session_type = f"SESSION_{payload.session_type}"
+    state.weather_state = f"WEATHER_{payload.weather}"
+    state.total_laps = payload.total_laps
     state.race_control_state = f"SC_{payload.safety_car_status}"
 
 

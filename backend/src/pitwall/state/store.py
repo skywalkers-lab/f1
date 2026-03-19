@@ -18,13 +18,13 @@ from pitwall.state.reducers import (
 
 
 class StateStore:
-    def __init__(self) -> None:
+    def __init__(self, strategy_engine: StrategyEngine | None = None) -> None:
         self._state = AppState()
         self._lock = Lock()
         self._last_signature: tuple[int, int, int] | None = None
         self._last_frame_by_packet: dict[int, int] = {}
         self._minimap = MinimapTransformer()
-        self._strategy = StrategyEngine()
+        self._strategy = strategy_engine or StrategyEngine()
 
     def _is_stale_packet(self, packet_id: int, frame_identifier: int) -> bool:
         previous = self._last_frame_by_packet.get(packet_id)

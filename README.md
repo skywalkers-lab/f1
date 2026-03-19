@@ -39,6 +39,26 @@ cd backend
 pytest
 ```
 
+## Online Learning Model
+
+Backend now includes a trainable contextual bandit model for strategy recommendations.
+
+### Environment variables
+
+- `PITWALL_ML_ENABLED=true|false`
+- `PITWALL_ML_ALPHA=0.7` (blend ratio between simulator and ML)
+- `PITWALL_ML_MODEL_PATH=./data/strategy_model.json`
+- `PITWALL_ML_RIDGE_LAMBDA=1.5`
+
+### APIs
+
+- `GET /ml/status`: model metadata and sample count
+- `POST /ml/feedback`: add one user feedback sample (single online update)
+- `POST /ml/train/batch`: train with multiple samples in one request
+- `POST /ml/model/save`: persist model to disk
+
+When features are omitted in feedback payloads, backend uses current live `/state` snapshot to build features automatically.
+
 ## A/B/C upgrades implemented
 
 - A: Lap/session/status parsing was expanded, leaderboard + pace now derived in backend state.

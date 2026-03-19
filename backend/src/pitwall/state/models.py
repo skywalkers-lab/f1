@@ -95,6 +95,8 @@ class AppState:
     last_frame_identifier: int = 0
     session_type: str = "UNKNOWN"
     track: str = "UNKNOWN"
+    weather_state: str = "WEATHER_0"
+    total_laps: int = 0
     race_control_state: str = "GREEN"
     player_car_index: int = 0
     player: PlayerState = field(default_factory=PlayerState)

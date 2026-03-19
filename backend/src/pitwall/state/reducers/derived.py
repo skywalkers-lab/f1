@@ -44,12 +44,25 @@ def rebuild_pace(state: AppState) -> None:
 
 
 def rebuild_strategy(state: AppState, strategy_engine: StrategyEngine) -> None:
+    player_pos = state.player.position or 1
+    ahead = next((r for r in state.leaderboard if r.position == player_pos - 1), None)
+    behind = next((r for r in state.leaderboard if r.position == player_pos + 1), None)
+
     rec = strategy_engine.recommend(
         race_control_state=state.race_control_state,
         player_position=state.player.position,
         tyre_compound=state.player.tyre_compound,
         fuel_kg=state.player.fuel,
         ers_energy=state.player.ers,
+        current_lap=state.player.lap,
+        total_laps=state.total_laps,
+        avg_lap_ms=state.pace.avg_lap_ms,
+        best_lap_ms=state.pace.best_lap_ms,
+        consistency_pct=state.pace.consistency_pct,
+        gap_ahead_s=abs(ahead.gap_to_player_s) if ahead else 2.0,
+        gap_behind_s=abs(behind.gap_to_player_s) if behind else 2.0,
+        weather_state=state.weather_state,
+        track_id=state.track,
     )
     state.strategy = StrategyState(
         action=rec.action,

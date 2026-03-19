@@ -5,6 +5,8 @@ export type AppState = {
   last_frame_identifier: number
   session_type: string
   track: string
+  weather_state: string
+  total_laps: number
   race_control_state: string
   player_car_index: number
   player: {
