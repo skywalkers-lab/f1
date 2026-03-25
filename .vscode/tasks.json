@@ -51,6 +51,16 @@
             "label": "Git Commit Push",
             "type": "shell",
             "command": "git add -A && git status && git commit -m 'refactor: clean up dead code, fix unused imports, wire normalizer into WS pipeline, optimize state store caching and parallel WS broadcasts' && git push origin codex/design-pit-wall-application-architecture"
+        },
+        {
+            "label": "Push Current Branch",
+            "type": "shell",
+            "command": "git push origin HEAD && echo 'PUSH_OK'"
+        },
+        {
+            "label": "Merge to Main and Tag",
+            "type": "shell",
+            "command": "CURRENT=$(git branch --show-current) && git add -A && git commit -m 'chore: update tasks.json for branch ops' --allow-empty && git push origin HEAD && git checkout main && git pull origin main --no-rebase && git merge --no-ff \"$CURRENT\" -m \"feat: merge $CURRENT — HUD telemetry pipeline, Windows EXE packaging, strategy engine\" && git push origin main && git tag v1.0.0 && git push origin v1.0.0 && echo 'DONE'"
         }
     ]
 }
