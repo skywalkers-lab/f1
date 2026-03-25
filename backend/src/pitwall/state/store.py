@@ -6,6 +6,33 @@ from pitwall.ingest.stabilizer import PacketStabilizer
 from pitwall.state.aggregator import StateAggregator
 from pitwall.state.minimap import MinimapTransformer
 from pitwall.state.models import AppState, FeedHealthState
+
+
+class _NullStabilizer:
+    """Bypass stabilizer that passes every packet through immediately.
+    Used by StateStore(_test_mode=True) so tests don't depend on the 100ms
+    reorder-buffer timeout firing between packet submissions."""
+
+    _EMPTY_HEALTH = {
+        "score": 100.0, "packet_loss_pct": 0.0, "avg_jitter_ms": 0.0,
+        "max_jitter_ms": 0.0, "gap_rate": 0.0, "interpolation_pct": 0.0,
+        "out_of_order_pct": 0.0, "uptime_s": 0.0,
+    }
+    _EMPTY_STATS = {
+        "packets_received": 0, "packets_decoded": 0, "packets_dropped": 0,
+        "duplicate_packets": 0, "out_of_order_packets": 0, "gaps_detected": 0,
+        "max_gap_frames": 0, "interpolated_frames": 0, "decode_errors": 0,
+        "last_packet_type": "",
+    }
+
+    def process(self, routed):  # type: ignore[override]
+        return [(routed, False)]
+
+    def get_health_dict(self) -> dict:
+        return self._EMPTY_HEALTH
+
+    def get_extended_stats(self) -> dict:
+        return self._EMPTY_STATS
 from pitwall.state.reducers import (
     rebuild_leaderboard,
     rebuild_pace,
@@ -23,16 +50,17 @@ from pitwall.state.reducers import (
 
 
 class StateStore:
-    def __init__(self, strategy_engine: StrategyEngine | None = None) -> None:
+    def __init__(self, strategy_engine: StrategyEngine | None = None, _test_mode: bool = False) -> None:
         self._state = AppState()
         self._lock = Lock()
         self._last_signature: tuple[int, int, int] | None = None
         self._last_frame_by_packet: dict[tuple[int, int], int] = {}
         self._minimap = MinimapTransformer()
         self._strategy = strategy_engine or StrategyEngine()
-        self._stabilizer = PacketStabilizer()
+        self._stabilizer = _NullStabilizer() if _test_mode else PacketStabilizer()
         self._aggregator = StateAggregator()
         self._last_player_lap: int = 0
+        self._last_fuel_kg: float = 0.0
         self._cached_snapshot: dict | None = None
         self._snapshot_dirty: bool = True
 
@@ -162,6 +190,18 @@ class StateStore:
                 reduce_car_telemetry(self._state, payload)
             elif routed.decoded.kind == "car_status":
                 reduce_car_status(self._state, payload)
+                # Track fuel burn between consecutive status packets
+                current_fuel = self._state.player.fuel
+                if self._last_fuel_kg > 0 and current_fuel < self._last_fuel_kg:
+                    burned = self._last_fuel_kg - current_fuel
+                    # Smooth into a rolling estimate (weight new sample 50%)
+                    if self._state.player.fuel_delta_per_lap > 0:
+                        self._state.player.fuel_delta_per_lap = round(
+                            0.5 * self._state.player.fuel_delta_per_lap + 0.5 * burned, 3
+                        )
+                    else:
+                        self._state.player.fuel_delta_per_lap = round(burned, 3)
+                self._last_fuel_kg = current_fuel
             elif routed.decoded.kind == "car_damage":
                 reduce_car_damage(self._state, payload)
             elif routed.decoded.kind == "session_history":

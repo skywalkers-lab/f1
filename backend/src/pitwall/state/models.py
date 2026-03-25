@@ -93,6 +93,7 @@ class PlayerState:
     last_lap_ms: int = 0
     current_lap_ms: int = 0
     fuel_delta_per_lap: float = 0.0
+    front_wing_damage: int = 0
 
 
 @dataclass

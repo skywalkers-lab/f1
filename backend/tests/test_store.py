@@ -40,7 +40,7 @@ def test_store_updates_minimap_from_motion_packet():
     payload = b"".join(make_motion_record(float(i), float(i * 3)) for i in range(CAR_COUNT))
     data = HEADER_STRUCT.pack(2025, 25, 1, 0, 1, 0, 111, 1.0, 2, 2, 1, 255) + payload
     routed = route_packet(data)
-    store = StateStore()
+    store = StateStore(_test_mode=True)
     snapshot = store.apply(routed)
     assert snapshot["minimap"]["mode"] == "live_trace"
     assert len(snapshot["minimap"]["cars"]) == CAR_COUNT
@@ -48,7 +48,7 @@ def test_store_updates_minimap_from_motion_packet():
 
 
 def test_store_builds_leaderboard_pace_and_strategy():
-    store = StateStore()
+    store = StateStore(_test_mode=True)
     lap_payload = b"".join(
         make_lap_record(90000 + i * 10, 45000 + i * 10, i + 1, 5 + i) for i in range(CAR_COUNT)
     )
@@ -67,7 +67,7 @@ def test_store_builds_leaderboard_pace_and_strategy():
 
 
 def test_store_ignores_stale_frames():
-    store = StateStore()
+    store = StateStore(_test_mode=True)
     data_newer = HEADER_STRUCT.pack(2025, 25, 1, 0, 1, 3, 7, 0.0, 20, 20, 0, 255) + b"EVN1"
     data_older = HEADER_STRUCT.pack(2025, 25, 1, 0, 1, 3, 7, 0.0, 10, 10, 0, 255) + b"EVN2"
     store.apply(route_packet(data_newer))

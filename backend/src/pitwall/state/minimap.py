@@ -170,10 +170,13 @@ class MinimapTransformer:
         world_cars = []
         for car in cars:
             car_state = car_states.get(car.car_index) if car_states else None
+            pt = self._normalize(car.world_position_x, car.world_position_z, min_x, max_x, min_z, max_z)
             world_cars.append({
                 "car_index": car.car_index,
                 "x": car.world_position_x,
                 "y": car.world_position_z,
+                "nx": pt.x,
+                "ny": pt.y,
                 "is_pitting": bool(car_state.is_pitting) if car_state else False,
             })
 

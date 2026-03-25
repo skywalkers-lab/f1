@@ -141,7 +141,7 @@ def _full_status_payload(fuel: float, compound: int, ers: float,
 
 
 def test_fuel_delta_tracking():
-    store = StateStore()
+    store = StateStore(_test_mode=True)
 
     # Lap data to establish player position
     lap_payload = b"".join(
@@ -193,7 +193,7 @@ def test_pace_rebuild_filters_pit_lap_outlier():
 
 
 def test_car_damage_updates_all_cars():
-    store = StateStore()
+    store = StateStore(_test_mode=True)
 
     # Establish cars via lap data first
     lap_payload = b"".join(
@@ -330,7 +330,7 @@ def test_pit_loss_model_has_multiple_tracks():
 
 
 def test_leaderboard_gap_calculation():
-    store = StateStore()
+    store = StateStore(_test_mode=True)
 
     # Set up 5 cars with positions and deltas
     lap_records = []
@@ -354,7 +354,7 @@ def test_leaderboard_gap_calculation():
 
 
 def test_minimap_produces_normalized_coordinates():
-    store = StateStore()
+    store = StateStore(_test_mode=True)
     payload = b"".join(
         make_motion_record(float(i * 100), float(i * 50))
         for i in range(CAR_COUNT)
