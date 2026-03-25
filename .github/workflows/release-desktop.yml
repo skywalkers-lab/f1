@@ -80,6 +80,10 @@ jobs:
         shell: bash
         run: npm install
 
+      - name: Generate app icons
+        shell: bash
+        run: python electron/icons/generate_icon.py
+
       - name: Build Electron app (NSIS installer + portable)
         working-directory: electron
         env:

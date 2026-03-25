@@ -43,6 +43,11 @@
             "command": "cd backend && source .venv/bin/activate && python -m pytest tests/ --tb=short 2>&1 | tail -80; echo EXIT_CODE=$?"
         },
         {
+            "label": "Python Tests Verbose",
+            "type": "shell",
+            "command": "cd backend && source .venv/bin/activate && python -m pytest tests/test_integration.py tests/test_store.py --tb=long -v 2>&1 | tail -120; echo EXIT_CODE=$?"
+        },
+        {
             "label": "Cleanup Files",
             "type": "shell",
             "command": "rm -f frontend/src/styles.css.bak bello CODE_REVIEW_FINDINGS.md FIXES_SUMMARY.md IMPROVEMENTS_50.md && echo 'Cleanup done'"
@@ -61,6 +66,61 @@
             "label": "Merge to Main and Tag",
             "type": "shell",
             "command": "CURRENT=$(git branch --show-current) && git add -A && git commit -m 'chore: update tasks.json for branch ops' --allow-empty && git push origin HEAD && git checkout main && git pull origin main --no-rebase && git merge --no-ff \"$CURRENT\" -m \"feat: merge $CURRENT — HUD telemetry pipeline, Windows EXE packaging, strategy engine\" && git push origin main && git tag v1.0.0 && git push origin v1.0.0 && echo 'DONE'"
+        },
+        {
+            "label": "Check GitHub Status",
+            "type": "shell",
+            "command": "echo '=== Workflow Runs ===' && gh run list --repo skywalkers-lab/f1 --limit 8 2>&1 && echo '=== Releases ===' && gh release list --repo skywalkers-lab/f1 --limit 5 2>&1 && echo EXIT_CODE=$?"
+        },
+        {
+            "label": "Check Workflow Failures",
+            "type": "shell",
+            "command": "echo '=== Release Desktop Workflow ===' && gh run list --repo skywalkers-lab/f1 --workflow release-desktop.yml --limit 3 2>&1 && echo '=== Deploy Frontend Workflow ===' && gh run list --repo skywalkers-lab/f1 --workflow deploy-frontend.yml --limit 3 2>&1 && echo EXIT_CODE=$?"
+        },
+        {
+            "label": "View Workflow Logs",
+            "type": "shell",
+            "command": "echo '=== Release Desktop Latest Run Log ===' && gh run view --repo skywalkers-lab/f1 --log-failed $(gh run list --repo skywalkers-lab/f1 --workflow release-desktop.yml --limit 1 --json databaseId --jq '.[0].databaseId') 2>&1 | head -80; echo '---'; echo '=== Deploy Frontend Latest Run Log ===' && gh run view --repo skywalkers-lab/f1 --log-failed $(gh run list --repo skywalkers-lab/f1 --workflow deploy-frontend.yml --limit 1 --json databaseId --jq '.[0].databaseId') 2>&1 | head -80; echo EXIT_CODE=$?"
+        },
+        {
+            "label": "Generate Icons",
+            "type": "shell",
+            "command": "python3 electron/icons/generate_icon.py && echo EXIT_CODE=$?"
+        },
+        {
+            "label": "View Deploy Frontend Log",
+            "type": "shell",
+            "command": "gh run list --repo skywalkers-lab/f1 --limit 10 --json databaseId,name,status,conclusion 2>&1 && echo '---' && gh run view --repo skywalkers-lab/f1 $(gh run list --repo skywalkers-lab/f1 --workflow deploy-frontend.yml --limit 1 --json databaseId --jq '.[0].databaseId') 2>&1 | head -50; echo EXIT_CODE=$?"
+        },
+        {
+            "label": "Fix Pages Environment",
+            "type": "shell",
+            "command": "gh api repos/skywalkers-lab/f1/environments/github-pages 2>&1 | head -30; echo '---'; gh api --method PUT repos/skywalkers-lab/f1/environments/github-pages --field deployment_branch_policy=null 2>&1; echo EXIT_CODE=$?"
+        },
+        {
+            "label": "Add Main Branch To Pages Env",
+            "type": "shell",
+            "command": "echo 'Current branch policies:' && gh api repos/skywalkers-lab/f1/environments/github-pages/deployment-branch-policies 2>&1; echo '---Adding main branch---'; gh api --method POST repos/skywalkers-lab/f1/environments/github-pages/deployment-branch-policies --field name=main 2>&1; echo EXIT_CODE=$?"
+        },
+        {
+            "label": "Check Pages Config",
+            "type": "shell",
+            "command": "gh api repos/skywalkers-lab/f1/pages 2>&1 && echo '---' && git -C /workspaces/f1 branch -a | grep 'gh-pages' 2>&1; echo EXIT_CODE=$?"
+        },
+        {
+            "label": "Update Pages Source",
+            "type": "shell",
+            "command": "gh api --method PUT repos/skywalkers-lab/f1/pages --field build_type=workflow 2>&1; echo '---'; gh api repos/skywalkers-lab/f1/pages 2>&1 | python3 -c \"import sys,json; d=json.load(sys.stdin); print('source:', d.get('source')); print('build_type:', d.get('build_type'))\" 2>&1; echo EXIT_CODE=$?"
+        },
+        {
+            "label": "View CI And Other Failures",
+            "type": "shell",
+            "command": "echo '=== CI ===' && gh run view --repo skywalkers-lab/f1 --log-failed $(gh run list --repo skywalkers-lab/f1 --workflow ci.yml --limit 1 --json databaseId --jq '.[0].databaseId') 2>&1 | head -60; echo EXIT_CODE=$?"
+        },
+        {
+            "label": "Commit And Retag",
+            "type": "shell",
+            "command": "git add -A && git status && git commit -m 'fix: add electron app icons, fix deploy-frontend to use gh-pages branch, add icon gen step to release workflow' && git push origin main && git tag -d v1.0.0 2>/dev/null; git push origin :refs/tags/v1.0.0 2>/dev/null; git tag v1.0.0 && git push origin v1.0.0 && echo 'DONE'"
         }
     ]
 }
