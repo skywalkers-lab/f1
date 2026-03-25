@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 from typing import Protocol
 
+from pitwall.domain.advanced_strategy import AdvancedStrategyAdvisor
+
 
 ACTION_PIT_NOW = "PIT_NOW"
 ACTION_PIT_IN_1 = "PIT_IN_1"
@@ -9,7 +11,7 @@ ACTION_STAY_OUT = "STAY_OUT"
 DEFAULT_TOTAL_LAPS = 58
 DEFAULT_BASE_LAP_TIME = 89.0
 MAX_TRACK_POSITION = 22
-ERS_MAX_J = 5_000_000.0
+ERS_MAX_J = 4_000_000.0
 
 
 @dataclass(frozen=True)
@@ -27,6 +29,7 @@ class StrategyRecommendation:
     reason: str
     key_inputs: dict
     candidates: list[CandidateScore]
+    advanced_context: dict | None = None
 
 
 @dataclass(frozen=True)
@@ -101,6 +104,7 @@ class FeatureExtractor:
         gap_behind_s: float,
         weather_state: str,
         track_id: str,
+        tyres_age_laps: int = 0,
     ) -> RaceFeatures:
         safe_total_laps = total_laps if total_laps > 0 else DEFAULT_TOTAL_LAPS
         safe_lap = max(1, current_lap)
@@ -112,9 +116,10 @@ class FeatureExtractor:
         relative_pace = avg_lap_time - base_lap_time
 
         inferred_stint = max(1, safe_lap - 1)
-        tyre_age = inferred_stint
+        tyre_age = max(0, tyres_age_laps) if tyres_age_laps > 0 else inferred_stint
         tyre_wear_mean = min(1.0, tyre_age / 30.0)
-        fuel_delta_per_lap = fuel_kg / max(1, laps_remaining)
+        laps_completed = max(1, safe_lap - 1)
+        fuel_delta_per_lap = fuel_kg / max(1, laps_remaining) if laps_remaining > 0 else fuel_kg / laps_completed
         ers_level_norm = min(1.0, max(0.0, ers_energy / ERS_MAX_J))
         traffic_density = min(1.0, (max(0.0, 9.0 - safe_position) / 9.0) + max(0.0, 1.0 - consistency_pct / 100.0) * 0.2)
 
@@ -150,6 +155,8 @@ class TyreModel:
         "C3": 0.00,
         "C2": 0.25,
         "C1": 0.50,
+        "INTER": 0.80,
+        "WET": 1.20,
     }
     _DEG_RATE = {
         "C5": 0.080,
@@ -157,6 +164,8 @@ class TyreModel:
         "C3": 0.050,
         "C2": 0.040,
         "C1": 0.035,
+        "INTER": 0.030,
+        "WET": 0.025,
     }
     _CLIFF_AGE = {
         "C5": 16,
@@ -164,6 +173,8 @@ class TyreModel:
         "C3": 24,
         "C2": 30,
         "C1": 36,
+        "INTER": 40,
+        "WET": 50,
     }
     _MAX_LIFE = {
         "C5": 18,
@@ -171,6 +182,8 @@ class TyreModel:
         "C3": 28,
         "C2": 34,
         "C1": 40,
+        "INTER": 45,
+        "WET": 55,
     }
 
     def expected_lap_time(self, base_lap_time_s: float, tyre_age: int, compound: str) -> TyreProjection:
@@ -209,9 +222,28 @@ class FuelModel:
 
 class PitLossModel:
     _BASE_TRACK_LOSS = {
-        "TRACK_0": 20.5,
-        "TRACK_1": 22.0,
-        "TRACK_2": 24.0,
+        "TRACK_0": 20.5,   # Melbourne
+        "TRACK_1": 22.0,   # Spa  
+        "TRACK_2": 24.0,   # Monaco
+        "TRACK_3": 21.0,   # Bahrain
+        "TRACK_4": 19.5,   # Jeddah
+        "TRACK_5": 21.5,   # Shanghai
+        "TRACK_6": 20.0,   # Miami
+        "TRACK_7": 22.5,   # Imola
+        "TRACK_8": 23.0,   # Montreal
+        "TRACK_9": 21.0,   # Barcelona
+        "TRACK_10": 19.0,  # Spielberg
+        "TRACK_11": 20.5,  # Silverstone
+        "TRACK_12": 22.0,  # Budapest
+        "TRACK_14": 20.0,  # Zandvoort
+        "TRACK_15": 21.0,  # Monza
+        "TRACK_17": 23.5,  # Singapore
+        "TRACK_19": 20.5,  # Austin
+        "TRACK_20": 21.0,  # Mexico City
+        "TRACK_21": 22.0,  # Sao Paulo
+        "TRACK_22": 20.0,  # Las Vegas
+        "TRACK_23": 19.5,  # Lusail
+        "TRACK_24": 20.5,  # Abu Dhabi
     }
     _DEFAULT_TRACK_LOSS = 22.5
     _STATIONARY_TIME = 2.6
@@ -397,6 +429,62 @@ class StrategyEngine:
         spread = max(0.01, abs(best_score - second_score))
         return min(1.0, max(0.0, 0.5 + spread / 6.0))
 
+    def _heuristic_adjustment(self, action: str, result: SimulationResult, features: RaceFeatures) -> float:
+        adjustment = 0.0
+        sc_active = features.sc_vsc_status.endswith("_3")
+        vsc_active = features.sc_vsc_status.endswith("_2")
+        pit_actions = {ACTION_PIT_NOW, ACTION_PIT_IN_1, ACTION_PIT_IN_2}
+
+        # SC/VSC undercuts pit-lane loss in real races, so bias pit actions when active.
+        if sc_active:
+            if action == ACTION_PIT_NOW:
+                adjustment += 2.0
+            elif action in pit_actions:
+                adjustment += 1.3
+            else:
+                adjustment -= 0.9
+        elif vsc_active:
+            if action == ACTION_PIT_NOW:
+                adjustment += 1.0
+            elif action in pit_actions:
+                adjustment += 0.6
+
+        is_window_open = features.pit_window_status == "OPEN"
+        tyre_old = features.tyre_age >= 20 or features.tyre_wear_mean >= 0.72
+        if is_window_open and tyre_old and action in pit_actions:
+            adjustment += 0.9
+
+        # In the final laps, position defense usually beats pit cycle risk.
+        if features.laps_remaining <= 6 and action in pit_actions:
+            adjustment -= 1.4
+        if features.laps_remaining <= 4 and action == ACTION_STAY_OUT:
+            adjustment += 0.8
+
+        if features.gap_behind_s <= 1.0 and action == ACTION_PIT_NOW:
+            adjustment += 0.4
+        if features.gap_ahead_s <= 0.9 and action == ACTION_STAY_OUT:
+            adjustment += 0.35
+
+        if result.risk_factor >= 0.7 and action == ACTION_STAY_OUT and features.laps_remaining > 8:
+            adjustment -= 0.6
+
+        # Weather-driven adjustments: wet conditions strongly favor pit for inters/wets
+        weather_idx = int(features.weather_state.replace("WEATHER_", "0") or "0")
+        is_wet = weather_idx >= 4
+        is_damp = weather_idx == 3
+        on_slicks = features.tyre_compound in ("C1", "C2", "C3", "C4", "C5")
+
+        if is_wet and on_slicks and action in pit_actions:
+            adjustment += 3.0  # Critical: must pit for wet tyres
+        elif is_damp and on_slicks and action in pit_actions:
+            adjustment += 1.5  # Should consider inters
+
+        # Tyre cliff imminent: strong bias to pit
+        if features.tyre_wear_mean >= 0.85 and action in pit_actions and features.laps_remaining > 5:
+            adjustment += 1.2
+
+        return adjustment
+
     def recommend(
         self,
         race_control_state: str,
@@ -413,6 +501,7 @@ class StrategyEngine:
         gap_behind_s: float = 1.2,
         weather_state: str = "WEATHER_0",
         track_id: str = "TRACK_UNKNOWN",
+        tyres_age_laps: int = 0,
         **_ignored_kwargs: object,
     ) -> StrategyRecommendation:
         features = self._features.extract(
@@ -430,6 +519,7 @@ class StrategyEngine:
             gap_behind_s=gap_behind_s,
             weather_state=weather_state,
             track_id=track_id,
+            tyres_age_laps=tyres_age_laps,
         )
 
         results: list[tuple[SimulationResult, float, float | None, float | None]] = []
@@ -444,6 +534,7 @@ class StrategyEngine:
                     ml_score = inference.score
                     ml_confidence = inference.confidence
             final_score = self._combiner.combine(simulation_score=simulation_score, ml_score=ml_score)
+            final_score += self._heuristic_adjustment(action=action, result=sim_result, features=features)
             results.append((sim_result, final_score, ml_score, ml_confidence))
 
         ranked = sorted(results, key=lambda item: item[1], reverse=True)
@@ -462,6 +553,17 @@ class StrategyEngine:
             )
             for result, score, ml_score, _ in ranked
         ]
+
+        stay_out_result = next((result for result, _score, _ml, _conf in ranked if result.action == ACTION_STAY_OUT), None)
+        undercut_gain_s = 0.0
+        overcut_gain_s = 0.0
+        if stay_out_result is not None:
+            pit_now_result = next((result for result, _score, _ml, _conf in ranked if result.action == ACTION_PIT_NOW), None)
+            pit_in_2_result = next((result for result, _score, _ml, _conf in ranked if result.action == ACTION_PIT_IN_2), None)
+            if pit_now_result is not None:
+                undercut_gain_s = stay_out_result.total_time_s - pit_now_result.total_time_s
+            if pit_in_2_result is not None:
+                overcut_gain_s = stay_out_result.total_time_s - pit_in_2_result.total_time_s
 
         confidence = self._confidence(best_score, second_score)
         normalized_score = self._normalized_score(best_score, second_score)
@@ -494,9 +596,37 @@ class StrategyEngine:
             "sc_vsc_status": features.sc_vsc_status,
             "weather_state": features.weather_state,
             "pit_loss_est_s": round(best_result.pit_loss_s, 2),
+            "undercut_gain_s": round(undercut_gain_s, 3),
+            "overcut_gain_s": round(overcut_gain_s, 3),
             "decision_alpha": round(self._alpha, 3),
             "ml_enabled": 1 if self._ml_model is not None else 0,
         }
+
+        # Advanced strategy context analysis
+        tyre_proj = self._tyre_model.expected_lap_time(
+            features.base_lap_time_s, features.tyre_age, features.tyre_compound,
+        )
+        advisor = AdvancedStrategyAdvisor()
+        advanced_context = advisor.analyze_context(
+            recommended_action=best_result.action,
+            confidence=confidence,
+            score=normalized_score,
+            tyre_compound=features.tyre_compound,
+            tyre_age=features.tyre_age,
+            tyre_wear_pct=features.tyre_wear_mean * 100,
+            fuel_kg=features.fuel_remaining,
+            fuel_delta_per_lap=features.fuel_delta_per_lap,
+            ers_norm=features.ers_level_norm,
+            position=features.player_position,
+            laps_remaining=features.laps_remaining,
+            total_laps=total_laps,
+            gap_ahead_s=features.gap_ahead_s,
+            gap_behind_s=features.gap_behind_s,
+            pit_loss_s=best_result.pit_loss_s,
+            sc_vsc_status=features.sc_vsc_status,
+            weather_state=features.weather_state,
+            deg_rate_ms=tyre_proj.degradation_rate_s * 1000,
+        )
 
         return StrategyRecommendation(
             action=best_result.action,
@@ -505,4 +635,5 @@ class StrategyEngine:
             reason=reason,
             key_inputs=key_inputs,
             candidates=candidates,
+            advanced_context=advanced_context,
         )

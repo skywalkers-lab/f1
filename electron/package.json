@@ -1,0 +1,99 @@
+{
+  "name": "f1-pitwall",
+  "version": "1.0.0",
+  "description": "F1 Pit Wall — Complete Analysis Platform",
+  "main": "main.js",
+  "author": "PitWall Team",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "build:frontend": "cd ../frontend && npm run build",
+    "build:backend:exe": "powershell -ExecutionPolicy Bypass -File ../scripts/windows/build_backend_exe.ps1",
+    "build:portable:win": "npm run build:frontend && npm run build:backend:exe && electron-builder --win portable",
+    "build:win": "electron-builder --win",
+    "build:mac": "electron-builder --mac",
+    "build:linux": "electron-builder --linux",
+    "dist": "npm run build:frontend && electron-builder --win --linux"
+  },
+  "dependencies": {
+    "electron-is-dev": "^2.0.0"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.pitwall.f1",
+    "productName": "F1 PitWall",
+    "directories": {
+      "output": "dist"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "skywalkers-lab",
+        "repo": "f1"
+      }
+    ],
+    "files": [
+      "main.js",
+      "preload.js"
+    ],
+    "extraResources": [
+      {
+        "from": "../frontend/dist",
+        "to": "frontend",
+        "filter": ["**/*"]
+      },
+      {
+        "from": "../backend_dist",
+        "to": "backend_dist",
+        "filter": ["pitwall-backend.exe", "pitwall-backend"]
+      },
+      {
+        "from": "../backend",
+        "to": "backend",
+        "filter": [
+          "src/**/*",
+          "data/**/*",
+          "pyproject.toml",
+          "!__pycache__",
+          "!**/__pycache__",
+          "!.venv",
+          "!tests"
+        ]
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        },
+        {
+          "target": "portable",
+          "arch": ["x64"]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": true,
+      "allowToChangeInstallationDirectory": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "deleteAppDataOnUninstall": false,
+      "artifactName": "F1-PitWall-${version}-Setup.${ext}"
+    },
+    "portable": {
+      "artifactName": "F1-PitWall-${version}-portable.${ext}"
+    },
+    "linux": {
+      "target": ["AppImage"],
+      "category": "Utility"
+    },
+    "mac": {
+      "target": ["dmg"],
+      "category": "public.app-category.utilities"
+    }
+  }
+}

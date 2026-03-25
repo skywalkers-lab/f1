@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>PIT WALL</title>
+  <script>
+    // SPA redirect for GitHub Pages
+    // When a 404 page is hit (e.g. direct navigation to a route), redirect to
+    // index.html with the path preserved as a query parameter so the client-side
+    // router can handle it.
+    var segmentCount = 1; // number of path segments to keep (repo name = 1)
+    var loc = window.location;
+    loc.replace(
+      loc.protocol + '//' + loc.hostname + (loc.port ? ':' + loc.port : '') +
+      loc.pathname.split('/').slice(0, 1 + segmentCount).join('/') + '/?/' +
+      loc.pathname.slice(1).split('/').slice(segmentCount).join('/').replace(/&/g, '~and~') +
+      (loc.search ? '&' + loc.search.slice(1).replace(/&/g, '~and~') : '') +
+      loc.hash
+    );
+  </script>
+</head>
+<body></body>
+</html>

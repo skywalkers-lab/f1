@@ -5,14 +5,16 @@ export type SessionMode = {
 }
 
 const MAP: Record<number, SessionMode> = {
-  0: { mode: 'unknown', label: 'UNKNOWN', focus: 'Awaiting session metadata' },
-  1: { mode: 'practice', label: 'P1', focus: 'Baseline pace and tyre learning' },
-  2: { mode: 'practice', label: 'P2', focus: 'Long-run fuel and degradation' },
-  3: { mode: 'practice', label: 'P3', focus: 'Quali prep and final setup' },
-  5: { mode: 'qualifying', label: 'Q1', focus: 'Traffic windows and banker laps' },
-  6: { mode: 'qualifying', label: 'Q2', focus: 'Tyre commitment and cutline' },
-  7: { mode: 'qualifying', label: 'Q3', focus: 'Final attack lap execution' },
-  10: { mode: 'race', label: 'RACE', focus: 'Stint strategy and overcut/undercut' },
+  0: { mode: 'unknown', label: 'UNKNOWN', focus: '세션 메타데이터 대기 중' },
+  1: { mode: 'practice', label: 'P1', focus: '기본 페이스와 타이어 학습' },
+  2: { mode: 'practice', label: 'P2', focus: '롱런 연료/디그라데이션 확인' },
+  3: { mode: 'practice', label: 'P3', focus: '퀄리파잉 준비와 최종 셋업' },
+  5: { mode: 'qualifying', label: 'Q1', focus: '트래픽 윈도우와 뱅커랩 운영' },
+  6: { mode: 'qualifying', label: 'Q2', focus: '타이어 커밋과 컷라인 대응' },
+  7: { mode: 'qualifying', label: 'Q3', focus: '최종 어택랩 실행' },
+  8: { mode: 'qualifying', label: 'SHORT Q', focus: '짧은 세션에서 즉시 어택랩' },
+  9: { mode: 'qualifying', label: 'ONE-SHOT Q', focus: '단발 랩 최적화' },
+  10: { mode: 'race', label: 'RACE', focus: '스틴트 전략과 언더컷/오버컷' },
 }
 
 export function deriveSessionMode(sessionType?: string): SessionMode {

@@ -1,0 +1,54 @@
+name: Trigger Render Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      service:
+        description: Render service to deploy
+        required: true
+        default: relay
+        type: choice
+        options:
+          - relay
+          - frontend
+          - both
+  push:
+    branches:
+      - main
+    paths:
+      - relay-server/**
+      - frontend/**
+      - render.yaml
+      - .github/workflows/deploy-render.yml
+
+permissions:
+  contents: read
+
+jobs:
+  deploy-relay:
+    if: ${{ github.event_name == 'push' || github.event.inputs.service == 'relay' || github.event.inputs.service == 'both' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger relay deploy hook
+        env:
+          RENDER_DEPLOY_HOOK: ${{ secrets.RENDER_RELAY_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -z "$RENDER_DEPLOY_HOOK" ]; then
+            echo "RENDER_RELAY_DEPLOY_HOOK_URL is not configured"
+            exit 1
+          fi
+          curl -fsSL -X POST "$RENDER_DEPLOY_HOOK"
+
+  deploy-frontend:
+    if: ${{ github.event_name == 'push' || github.event.inputs.service == 'frontend' || github.event.inputs.service == 'both' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger frontend deploy hook
+        env:
+          RENDER_DEPLOY_HOOK: ${{ secrets.RENDER_FRONTEND_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -z "$RENDER_DEPLOY_HOOK" ]; then
+            echo "RENDER_FRONTEND_DEPLOY_HOOK_URL is not configured"
+            exit 1
+          fi
+          curl -fsSL -X POST "$RENDER_DEPLOY_HOOK"

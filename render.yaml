@@ -1,0 +1,55 @@
+services:
+  - type: web
+    name: f1-pitwall-relay
+    runtime: node
+    rootDir: relay-server
+    plan: starter
+    autoDeploy: true
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: 20
+      - key: HOST
+        value: 0.0.0.0
+      - key: PORT
+        value: 8080
+      - key: DEFAULT_SESSION_ID
+        value: public
+      - key: STREAM_HZ
+        value: 15
+      - key: MAX_STATE_AGE_MS
+        value: 12000
+      - key: MAX_SESSION_IDLE_MS
+        value: 1800000
+      - key: CORS_ORIGIN
+        sync: false
+      - key: BRIDGE_TOKENS
+        sync: false
+      - key: MODEL_PATH
+        value: ./data/strategy-model.json
+      - key: FEEDBACK_LOG_PATH
+        value: ./data/strategy-feedback.ndjson
+
+  - type: static
+    name: f1-pitwall-frontend
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    pullRequestPreviewsEnabled: true
+    envVars:
+      - key: NODE_VERSION
+        value: 20
+      - key: VITE_DEFAULT_DEMO_MODE
+        value: monaco
+      - key: VITE_WS_RELAY_URL
+        sync: false
+      - key: VITE_RELAY_API_BASE
+        sync: false
+      - key: VITE_SESSION_ID
+        value: public
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html

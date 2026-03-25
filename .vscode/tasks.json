@@ -4,7 +4,7 @@
         {
             "label": "Run Backend",
             "type": "shell",
-            "command": "cd backend && source .venv/bin/activate && uvicorn pitwall.main:app --reload",
+            "command": "cd backend && source .venv/bin/activate && uvicorn pitwall.main:app --reload --host 0.0.0.0 --port 8765",
             "group": "build",
             "isBackground": true,
             "presentation": {
@@ -26,6 +26,31 @@
                 "focus": false,
                 "panel": "shared"
             }
+        },
+        {
+            "label": "TS Type Check",
+            "type": "shell",
+            "command": "cd frontend && npx tsc --noEmit 2>&1; echo EXIT_CODE=$?"
+        },
+        {
+            "label": "Python Import Test",
+            "type": "shell",
+            "command": "cd backend && source .venv/bin/activate && python -c \"from pitwall.core.event_bus import TelemetryEventBus; from pitwall.core.models import Topics; from pitwall.core.transport import WebSocketTransport, EventBusBridge; from pitwall.hud.overlay_manager import OverlayManager; from pitwall.state.store import StateStore; from pitwall.api.ws import WebSocketHub; print('All backend imports OK')\""
+        },
+        {
+            "label": "Python Tests",
+            "type": "shell",
+            "command": "cd backend && source .venv/bin/activate && python -m pytest tests/ --tb=short 2>&1 | tail -80; echo EXIT_CODE=$?"
+        },
+        {
+            "label": "Cleanup Files",
+            "type": "shell",
+            "command": "rm -f frontend/src/styles.css.bak bello CODE_REVIEW_FINDINGS.md FIXES_SUMMARY.md IMPROVEMENTS_50.md && echo 'Cleanup done'"
+        },
+        {
+            "label": "Git Commit Push",
+            "type": "shell",
+            "command": "git add -A && git status && git commit -m 'refactor: clean up dead code, fix unused imports, wire normalizer into WS pipeline, optimize state store caching and parallel WS broadcasts' && git push origin codex/design-pit-wall-application-architecture"
         }
     ]
 }

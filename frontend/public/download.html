@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>F1 PitWall — Download</title>
+  <style>
+    :root {
+      --bg: #0a0a0f;
+      --surface: #12121a;
+      --border: #1e1e2e;
+      --text: #e4e4e7;
+      --muted: #71717a;
+      --accent: #e10600;
+      --accent-hover: #ff1a10;
+      --green: #22c55e;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+    .hero {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 2rem;
+      text-align: center;
+      background: radial-gradient(ellipse at 50% 0%, rgba(225,6,0,0.08) 0%, transparent 60%);
+    }
+    .logo {
+      font-size: 3.5rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      margin-bottom: 0.25rem;
+      background: linear-gradient(135deg, #fff 0%, #ccc 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .logo span { color: var(--accent); -webkit-text-fill-color: var(--accent); }
+    .tagline {
+      font-size: 1.15rem;
+      color: var(--muted);
+      margin-bottom: 2.5rem;
+      max-width: 500px;
+    }
+    .download-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 2.5rem 3rem;
+      max-width: 520px;
+      width: 100%;
+      margin-bottom: 2rem;
+    }
+    .download-card h2 {
+      font-size: 1.3rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+    }
+    .download-card p {
+      color: var(--muted);
+      font-size: 0.9rem;
+      margin-bottom: 1.5rem;
+    }
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: var(--accent);
+      color: #fff;
+      text-decoration: none;
+      padding: 0.9rem 2rem;
+      border-radius: 10px;
+      font-size: 1.05rem;
+      font-weight: 600;
+      transition: background 0.15s, transform 0.1s;
+      border: none;
+      cursor: pointer;
+      width: 100%;
+      justify-content: center;
+    }
+    .btn-primary:hover { background: var(--accent-hover); transform: translateY(-1px); }
+    .btn-primary:active { transform: translateY(0); }
+    .btn-secondary {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: transparent;
+      color: var(--muted);
+      text-decoration: none;
+      padding: 0.7rem 1.5rem;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-weight: 500;
+      border: 1px solid var(--border);
+      transition: all 0.15s;
+      width: 100%;
+      justify-content: center;
+      margin-top: 0.75rem;
+    }
+    .btn-secondary:hover { color: var(--text); border-color: var(--muted); }
+    .version-badge {
+      display: inline-block;
+      background: rgba(225,6,0,0.15);
+      color: var(--accent);
+      padding: 0.2rem 0.6rem;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      margin-bottom: 1.5rem;
+    }
+    .features {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+      max-width: 700px;
+      margin: 2rem auto;
+      text-align: left;
+    }
+    .feature {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.25rem;
+    }
+    .feature h3 {
+      font-size: 0.95rem;
+      font-weight: 600;
+      margin-bottom: 0.4rem;
+    }
+    .feature p {
+      font-size: 0.82rem;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+    .steps {
+      max-width: 520px;
+      width: 100%;
+      margin: 1rem auto;
+      text-align: left;
+    }
+    .steps h3 {
+      font-size: 1.1rem;
+      margin-bottom: 1rem;
+      text-align: center;
+    }
+    .step {
+      display: flex;
+      gap: 1rem;
+      align-items: flex-start;
+      margin-bottom: 1rem;
+    }
+    .step-num {
+      flex-shrink: 0;
+      width: 28px;
+      height: 28px;
+      background: var(--accent);
+      color: #fff;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.8rem;
+      font-weight: 700;
+    }
+    .step-text { font-size: 0.9rem; color: var(--muted); line-height: 1.5; padding-top: 3px; }
+    .step-text strong { color: var(--text); }
+    .footer {
+      color: var(--muted);
+      font-size: 0.8rem;
+      margin-top: 3rem;
+      padding-bottom: 2rem;
+    }
+    .footer a { color: var(--muted); text-decoration: underline; }
+    .footer a:hover { color: var(--text); }
+    .requirements {
+      font-size: 0.82rem;
+      color: var(--muted);
+      margin-top: 0.75rem;
+    }
+    @media (max-width: 600px) {
+      .features { grid-template-columns: 1fr; }
+      .download-card { padding: 1.5rem; }
+      .logo { font-size: 2.5rem; }
+    }
+    .spinner {
+      display: none;
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div class="hero">
+    <div class="logo">F1 <span>PitWall</span></div>
+    <p class="tagline">Real-time F1 25 telemetry dashboard, strategy engine, and race analysis platform for your desktop.</p>
+
+    <div class="download-card">
+      <div class="version-badge" id="version-badge">Loading...</div>
+      <h2>Download for Windows</h2>
+      <p>One-click installer — download, run, done.</p>
+      <a class="btn-primary" id="download-installer" href="#">
+        <svg width="18" height="18" fill="none" viewBox="0 0 24 24"><path d="M12 16l-5-5h3V4h4v7h3l-5 5z" fill="currentColor"/><path d="M20 18H4v2h16v-2z" fill="currentColor"/></svg>
+        Download Installer (.exe)
+      </a>
+      <a class="btn-secondary" id="download-portable" href="#">
+        Portable version (no install needed)
+      </a>
+      <p class="requirements">Windows 10/11 64-bit · F1 25 with UDP telemetry enabled</p>
+    </div>
+
+    <div class="steps">
+      <h3>3 Steps to Go</h3>
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-text"><strong>Download & Run</strong> — Install or run the portable .exe</div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-text"><strong>Launch F1 25</strong> — Enable UDP Telemetry in Settings → Telemetry → UDP (port 20777)</div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-text"><strong>Race!</strong> — PitWall automatically connects and shows live data</div>
+      </div>
+    </div>
+
+    <div class="features">
+      <div class="feature">
+        <h3>📡 Live Telemetry</h3>
+        <p>Real-time speed, throttle, brake, tyre temps, and more — directly from your game.</p>
+      </div>
+      <div class="feature">
+        <h3>🏁 Strategy Engine</h3>
+        <p>Monte Carlo simulations and ML-powered pit stop recommendations.</p>
+      </div>
+      <div class="feature">
+        <h3>🗺️ Track Map</h3>
+        <p>Live minimap with driver positions, gaps, and sector times.</p>
+      </div>
+      <div class="feature">
+        <h3>📊 Post-Race Analysis</h3>
+        <p>Session recording, replay, pace analysis, and race reports.</p>
+      </div>
+    </div>
+
+    <div class="footer">
+      <p>Open source &mdash; <a id="repo-link" href="#">View on GitHub</a></p>
+    </div>
+  </div>
+
+  <script>
+    // Auto-detect GitHub repo from the current page URL (works on GitHub Pages)
+    (function() {
+      const GITHUB_API = 'https://api.github.com';
+
+      // Detect repo from GitHub Pages URL or fallback to known repo
+      function detectRepo() {
+        const host = location.hostname;
+        if (host.endsWith('.github.io')) {
+          const user = host.replace('.github.io', '');
+          const repo = location.pathname.split('/')[1] || '';
+          if (repo) return `${user}/${repo}`;
+        }
+        const meta = document.querySelector('meta[name="github-repo"]');
+        if (meta) return meta.getAttribute('content');
+        // Hardcoded fallback — always resolves
+        return 'skywalkers-lab/f1';
+      }
+
+      const repo = detectRepo();
+      if (!repo) {
+        document.getElementById('version-badge').textContent = 'Check GitHub for latest release';
+        return;
+      }
+
+      const repoUrl = `https://github.com/${repo}`;
+      document.getElementById('repo-link').href = repoUrl;
+
+      // Fetch latest release
+      fetch(`${GITHUB_API}/repos/${repo}/releases/latest`)
+        .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+        .then(release => {
+          const version = release.tag_name;
+          document.getElementById('version-badge').textContent = version;
+
+          // Find installer and portable assets
+          const assets = release.assets || [];
+          const installer = assets.find(a => /setup/i.test(a.name) && a.name.endsWith('.exe'));
+          const portable = assets.find(a => /portable/i.test(a.name) && a.name.endsWith('.exe'));
+          const anyExe = assets.find(a => a.name.endsWith('.exe'));
+
+          if (installer) {
+            document.getElementById('download-installer').href = installer.browser_download_url;
+          } else if (anyExe) {
+            document.getElementById('download-installer').href = anyExe.browser_download_url;
+          } else {
+            document.getElementById('download-installer').href = release.html_url;
+          }
+
+          if (portable) {
+            document.getElementById('download-portable').href = portable.browser_download_url;
+          } else {
+            document.getElementById('download-portable').href = release.html_url;
+            document.getElementById('download-portable').textContent = 'View all downloads on GitHub';
+          }
+        })
+        .catch(() => {
+          document.getElementById('version-badge').textContent = 'Latest';
+          document.getElementById('download-installer').href = `${repoUrl}/releases/latest`;
+          document.getElementById('download-portable').href = `${repoUrl}/releases/latest`;
+        });
+    })();
+  </script>
+</body>
+</html>

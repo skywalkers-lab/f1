@@ -4,23 +4,43 @@ from pitwall.state.models import AppState, LeaderboardRow, PaceSample, StrategyC
 
 
 def rebuild_leaderboard(state: AppState) -> None:
-    player_pos = state.player.position or 1
+    player_car = state.cars.get(state.player_car_index)
+    player_leader_delta_ms = player_car.delta_to_leader_ms if player_car else 0
+    active = set(state.active_car_indices)
+
     rows: list[LeaderboardRow] = []
     for car in state.cars.values():
+        if active and car.car_index not in active:
+            continue
         if car.position <= 0:
             continue
-        gap = (car.position - player_pos) * 0.85
+
+        # Gap to player uses decoded lap delta to race leader when available.
+        if car.delta_to_leader_ms > 0 or player_leader_delta_ms > 0:
+            gap = (car.delta_to_leader_ms - player_leader_delta_ms) / 1000.0
+        else:
+            # Deterministic fallback from front-gap accumulation when full delta is unavailable.
+            gap = 0.0
+            if player_car and car.position > player_car.position:
+                gap = max(0.0, car.delta_to_front_ms / 1000.0)
+            elif player_car and car.position < player_car.position:
+                gap = -max(0.0, player_car.delta_to_front_ms / 1000.0)
+
         rows.append(
             LeaderboardRow(
                 position=car.position,
                 car_index=car.car_index,
-                driver_code=f"C{car.car_index:02d}",
-                gap_to_player_s=gap,
+                driver_code=state.driver_codes.get(car.car_index, f"C{car.car_index:02d}"),
+                gap_to_player_s=round(gap, 3),
                 tyre_compound=car.tyre_compound,
                 is_pitting=car.is_pitting,
                 last_lap_ms=car.last_lap_ms,
+                driver_name=state.driver_names.get(car.car_index, ""),
+                stint_lap=car.tyres_age_laps,
+                tyre_wear_pct=car.tyre_wear_pct,
             )
         )
+
     state.leaderboard = sorted(rows, key=lambda r: r.position)[:22]
 
 
@@ -63,6 +83,7 @@ def rebuild_strategy(state: AppState, strategy_engine: StrategyEngine) -> None:
         gap_behind_s=abs(behind.gap_to_player_s) if behind else 2.0,
         weather_state=state.weather_state,
         track_id=state.track,
+        tyres_age_laps=state.player.tyres_age_laps,
     )
     state.strategy = StrategyState(
         action=rec.action,

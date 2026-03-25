@@ -16,6 +16,9 @@ src/pitwall/ingest/__init__.py
 src/pitwall/ingest/udp.py
 src/pitwall/logging/__init__.py
 src/pitwall/logging/raw_log.py
+src/pitwall/ml/__init__.py
+src/pitwall/ml/model.py
+src/pitwall/ml/service.py
 src/pitwall/replay/__init__.py
 src/pitwall/replay/player.py
 src/pitwall/replay/reader.py
@@ -33,6 +36,8 @@ src/pitwall_backend.egg-info/dependency_links.txt
 src/pitwall_backend.egg-info/requires.txt
 src/pitwall_backend.egg-info/top_level.txt
 tests/test_header.py
+tests/test_learning_model.py
 tests/test_replay.py
 tests/test_router.py
 tests/test_store.py
+tests/test_strategy_engine.py

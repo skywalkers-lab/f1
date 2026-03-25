@@ -1,0 +1,31 @@
+
+> pitwall-frontend@0.1.0 dev
+> vite --host 127.0.0.1 --port 5173
+
+
+  VITE v5.4.21  ready in 4853 ms
+
+  ➜  Local:   http://127.0.0.1:5173/
+1:34:10 PM [vite] hmr update /src/App.tsx
+1:34:10 PM [vite] hmr update /src/components/TelemetryTrendsPanel.tsx
+1:34:10 PM [vite] hmr update /src/styles.css
+1:48:45 PM [vite] hmr update /src/components/TopStatusPanel.tsx
+1:48:45 PM [vite] hmr update /src/components/LeaderboardPanel.tsx
+1:48:45 PM [vite] hmr update /src/components/PaceAnalysisPanel.tsx
+1:48:45 PM [vite] hmr update /src/components/TyreEngineeringPanel.tsx
+1:48:46 PM [vite] hmr update /src/components/StrategyHealthPanel.tsx
+1:48:46 PM [vite] hmr update /src/App.tsx
+1:49:52 PM [vite] hmr update /src/components/TopStatusPanel.tsx
+1:49:52 PM [vite] hmr update /src/App.tsx
+1:49:52 PM [vite] hmr update /src/components/StrategyHealthPanel.tsx
+1:49:52 PM [vite] hmr update /src/components/LeaderboardPanel.tsx
+1:49:52 PM [vite] hmr update /src/components/PaceAnalysisPanel.tsx
+1:49:52 PM [vite] hmr update /src/components/TyreEngineeringPanel.tsx
+1:50:45 PM [vite] hmr update /src/App.tsx
+1:50:55 PM [vite] hmr update /src/App.tsx
+1:51:51 PM [vite] hmr update /src/components/TelemetryTrendsPanel.tsx
+1:51:51 PM [vite] hmr update /src/components/MinimapPanel.tsx
+1:51:51 PM [vite] hmr update /src/components/BattleControlsPanel.tsx
+1:51:58 PM [vite] hmr update /src/components/TelemetryTrendsPanel.tsx
+1:51:58 PM [vite] hmr update /src/components/BattleControlsPanel.tsx
+1:51:58 PM [vite] hmr update /src/components/MinimapPanel.tsx

@@ -127,3 +127,47 @@ def test_ml_hook_can_shift_decision_when_alpha_low():
 
     assert rec.key_inputs["ml_enabled"] == 1
     assert rec.action == ACTION_STAY_OUT
+
+
+def test_late_race_discourages_extra_pit_cycle():
+    engine = StrategyEngine()
+    rec = engine.recommend(
+        race_control_state="SC_0",
+        player_position=3,
+        tyre_compound="C3",
+        fuel_kg=4.8,
+        ers_energy=2_000_000.0,
+        current_lap=56,
+        total_laps=58,
+        avg_lap_ms=91_200,
+        best_lap_ms=90_900,
+        consistency_pct=92.0,
+        gap_ahead_s=0.7,
+        gap_behind_s=0.8,
+        weather_state="WEATHER_0",
+        track_id="TRACK_1",
+    )
+
+    assert rec.action == ACTION_STAY_OUT
+
+
+def test_safety_car_biases_toward_pit_action():
+    engine = StrategyEngine()
+    rec = engine.recommend(
+        race_control_state="SC_3",
+        player_position=9,
+        tyre_compound="C4",
+        fuel_kg=20.0,
+        ers_energy=1_500_000.0,
+        current_lap=22,
+        total_laps=58,
+        avg_lap_ms=92_800,
+        best_lap_ms=92_100,
+        consistency_pct=80.0,
+        gap_ahead_s=1.8,
+        gap_behind_s=1.5,
+        weather_state="WEATHER_0",
+        track_id="TRACK_1",
+    )
+
+    assert rec.action in {ACTION_PIT_NOW, ACTION_PIT_IN_1, ACTION_PIT_IN_2}
