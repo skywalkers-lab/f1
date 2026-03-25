@@ -1,0 +1,11 @@
+Metadata-Version: 2.4
+Name: pitwall-backend
+Version: 0.1.0
+Summary: F1 25 pit wall backend
+Requires-Python: >=3.11
+Requires-Dist: fastapi>=0.115.0
+Requires-Dist: uvicorn[standard]>=0.30.0
+Requires-Dist: pydantic>=2.8.0
+Provides-Extra: dev
+Requires-Dist: pytest>=8.3.0; extra == "dev"
+Requires-Dist: pytest-asyncio>=0.23.0; extra == "dev"

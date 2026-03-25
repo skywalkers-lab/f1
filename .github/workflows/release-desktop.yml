@@ -1,0 +1,152 @@
+name: Release Desktop App
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Version tag (e.g. v1.0.0)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    name: Build Windows Installer
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # When triggered via workflow_dispatch, create the tag so the release job
+      # can find it. This is a no-op if the tag already exists.
+      - name: Create git tag (workflow_dispatch only)
+        if: github.event_name == 'workflow_dispatch'
+        shell: bash
+        run: |
+          git config user.email "actions@github.com"
+          git config user.name "GitHub Actions"
+          git tag "${{ inputs.tag }}" || true
+          git push origin "${{ inputs.tag }}" || true
+
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # ── Build backend .exe with PyInstaller ──
+      - name: Install backend dependencies
+        working-directory: backend
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e . pyinstaller
+
+      - name: Build backend executable
+        working-directory: backend
+        shell: bash
+        run: |
+          python -m PyInstaller --noconfirm pitwall_backend.spec
+          mkdir -p ../backend_dist
+          cp dist/pitwall-backend.exe ../backend_dist/pitwall-backend.exe
+
+      # ── Build frontend ──
+      - name: Install frontend dependencies
+        working-directory: frontend
+        shell: bash
+        run: npm install
+
+      - name: Build frontend
+        working-directory: frontend
+        shell: bash
+        env:
+          VITE_BASE_PATH: "./"
+        run: npm run build
+
+      # ── Build Electron installer + portable ──
+      - name: Install Electron dependencies
+        working-directory: electron
+        shell: bash
+        run: npm install
+
+      - name: Build Electron app (NSIS installer + portable)
+        working-directory: electron
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: npx electron-builder --win nsis portable --x64
+
+      - name: List built artifacts
+        shell: bash
+        run: find electron/dist -name "*.exe" -exec ls -lh {} \;
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-installers
+          path: |
+            electron/dist/*.exe
+          retention-days: 5
+
+  release:
+    name: Create GitHub Release
+    needs: build-windows
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-installers
+          path: dist/
+
+      - name: Get version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "tag=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: "F1 PitWall ${{ steps.version.outputs.tag }}"
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          files: |
+            dist/*.exe
+          body: |
+            ## F1 PitWall Desktop — ${{ steps.version.outputs.tag }}
+
+            ### Download & Install
+            1. **Installer** (`F1-PitWall-*-Setup.exe`) — 추천! 설치 후 시작 메뉴에서 실행
+            2. **Portable** (`F1-PitWall-*-portable.exe`) — 설치 없이 바로 실행
+
+            ### 사용법
+            1. `.exe` 파일을 다운로드합니다
+            2. 실행하면 PitWall이 자동으로 시작됩니다
+            3. F1 25 게임을 실행하고 UDP 텔레메트리를 활성화합니다
+            4. PitWall이 자동으로 게임 데이터를 수신합니다
+
+            ### 시스템 요구사항
+            - Windows 10/11 (64-bit)
+            - F1 25 게임 (UDP 텔레메트리 활성화)

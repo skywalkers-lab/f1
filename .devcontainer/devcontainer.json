@@ -1,0 +1,13 @@
+{
+  "name": "f1-pitwall",
+  // appPort maps host:container with the same protocol — UDP included.
+  // F1 25 telemetry: set IP to 127.0.0.1, port 20777 in-game.
+  // ⚠  GitHub Codespaces only tunnels TCP.  For UDP you must run the
+  //    backend on your LOCAL machine (not in a remote Codespace).
+  "appPort": ["8765:8765", "5173:5173", "20777:20777/udp"],
+  "forwardPorts": [8765, 5173],
+  "portsAttributes": {
+    "8765": { "label": "Pitwall Backend (WS/HTTP)", "onAutoForward": "notify" },
+    "5173": { "label": "Pitwall Frontend", "onAutoForward": "openBrowser" }
+  }
+}

@@ -1,0 +1,28 @@
+.bello/
+
+# Environment secrets
+.env
+!.env.example
+
+# Dependencies
+node_modules/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.venv/
+dist/
+build/
+
+# Editor / OS
+*.bak
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Build outputs
+frontend/dist/
+electron/dist/
