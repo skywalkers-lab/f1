@@ -28,6 +28,7 @@
     "directories": {
       "output": "dist"
     },
+      "icon": "icons/icon.png",
     "publish": [
       {
         "provider": "github",

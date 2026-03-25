@@ -83,7 +83,48 @@
             "command": "echo '=== Release Desktop Latest Run Log ===' && gh run view --repo skywalkers-lab/f1 --log-failed $(gh run list --repo skywalkers-lab/f1 --workflow release-desktop.yml --limit 1 --json databaseId --jq '.[0].databaseId') 2>&1 | head -80; echo '---'; echo '=== Deploy Frontend Latest Run Log ===' && gh run view --repo skywalkers-lab/f1 --log-failed $(gh run list --repo skywalkers-lab/f1 --workflow deploy-frontend.yml --limit 1 --json databaseId --jq '.[0].databaseId') 2>&1 | head -80; echo EXIT_CODE=$?"
         },
         {
-            "label": "Generate Icons",
+            "label": "View Release Desktop Log2",
+            "type": "shell",
+            "command": "gh run view --repo skywalkers-lab/f1 --log-failed $(gh run list --repo skywalkers-lab/f1 --workflow release-desktop.yml --limit 1 --json databaseId --jq '.[0].databaseId') 2>&1 | tail -100; echo EXIT_CODE=$?"
+        },
+        {
+            "label": "List Release Runs",
+            "type": "shell",
+            "command": "gh run list --repo skywalkers-lab/f1 --workflow release-desktop.yml --limit 3 --json databaseId,status,conclusion,name,headBranch 2>&1 && echo EXIT_CODE=$?"
+        },
+        {
+            "label": "View Latest Release Log",
+            "type": "shell",
+            "command": "gh run view 23550220049 --repo skywalkers-lab/f1 --log-failed 2>&1 | head -100; echo EXIT_CODE=$?"
+        },
+        {
+            "label": "View Release Run Details",
+            "type": "shell",
+            "command": "gh run view 23550220049 --repo skywalkers-lab/f1 2>&1; echo EXIT_CODE=$?"
+        },
+            },
+            {
+                            "label": "Remove ICO And Commit Fixes",
+                            "type": "shell",
+                            "command": "rm -f electron/icons/icon.ico && python3 electron/icons/generate_icon.py && git add -A && git status && git commit -m 'fix: use PNG icon only (ICO format caused app-builder panic), explicit icon path in package.json' && git push origin main && git tag -d v1.0.0 2>/dev/null; git push origin :refs/tags/v1.0.0 2>/dev/null; git tag v1.0.0 && git push origin v1.0.0 && echo 'DONE'; echo EXIT_CODE=$?"
+                        },
+                        {
+                        "label": "Rewrite Icon Script",
+                        "type": "shell",
+                        "command": "cat > electron/icons/generate_icon.py << 'PYEOF'\n\"\"\"Generate F1 PitWall icon (PNG only). electron-builder converts to ICO internally.\"\"\"\nimport struct, zlib, os\n\ndef _chunk(t, d):\n    c = t+d\n    return struct.pack('>I',len(d))+c+struct.pack('>I',zlib.crc32(c)&0xFFFFFFFF)\n\ndef create_png(path, size=256):\n    cx=cy=size//2; r=size//2-10\n    raw=bytearray()\n    for y in range(size):\n        raw+=b'\\x00'\n        for x in range(size):\n            dx,dy=x-cx,y-cy\n            raw+=(b'\\xe1\\x06\\x00\\xff' if dx*dx+dy*dy<r*r else b'\\x0a\\x0a\\x0f\\xff')\n    ihdr=struct.pack('>IIBBBBB',size,size,8,6,0,0,0)\n    with open(path,'wb') as f:\n        f.write(b'\\x89PNG\\r\\n\\x1a\\n')\n        f.write(_chunk(b'IHDR',ihdr))\n        f.write(_chunk(b'IDAT',zlib.compress(bytes(raw))))\n        f.write(_chunk(b'IEND',b''))\n\ndef main():\n    p=os.path.join(os.path.dirname(os.path.abspath(__file__)),'icon.png')\n    try:\n        from PIL import Image,ImageDraw,ImageFont\n        img=Image.new('RGBA',(256,256),(10,10,15,255))\n        d=ImageDraw.Draw(img)\n        d.ellipse([20,20,236,236],fill=(225,6,0,255))\n        try: f=ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',80)\n        except: f=ImageFont.load_default()\n        b=d.textbbox((0,0),'PW',font=f)\n        d.text(((256-b[2]+b[0])/2,(256-b[3]+b[1])/2-10),'PW',fill=(255,255,255,255),font=f)\n        img.save(p)\n        print('Created',p,'(Pillow)')\n    except ImportError:\n        create_png(p)\n        print('Created',p,'(stdlib fallback)')\n\nif __name__=='__main__': main()\nPYEOF\necho EXIT_CODE=$?"
+                    },
+                    {
+                    "label": "Get Electron Build Log",
+                    "type": "shell",
+                    "command": "JOB_ID=$(gh api repos/skywalkers-lab/f1/actions/runs/23550220049/jobs --jq '.jobs[0].id' 2>&1); echo 'Job ID:' $JOB_ID && gh api repos/skywalkers-lab/f1/actions/jobs/$JOB_ID/logs 2>&1 | grep -A 10 'electron-builder\\|icon\\|error\\|Error\\|⨯' | head -80; echo EXIT_CODE=$?"
+                },
+                {
+                "label": "Get Release Job Logs Via API",
+                "type": "shell",
+                "command": "gh api repos/skywalkers-lab/f1/actions/runs/23550220049/jobs 2>&1 | python3 -c \"import sys, json; d=json.load(sys.stdin); jobs=d['jobs']; [print(j['name'], j['conclusion'], '\\n'.join([s['name']+': '+str(s['conclusion']) for s in j['steps'] if s['conclusion'] not in ('success', None)])) for j in jobs]\" 2>&1; echo EXIT_CODE=$?"
+            }
+        ]
+    }
             "type": "shell",
             "command": "python3 electron/icons/generate_icon.py && echo EXIT_CODE=$?"
         },
