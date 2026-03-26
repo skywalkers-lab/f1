@@ -102,6 +102,20 @@ export type AppState = {
     max_gap_frames?: number
     interpolated_frames?: number
   }
+  udp_stats?: {
+    packetsReceived: number
+    packetsDropped: number
+    decodeErrors: number
+    isConnected: boolean
+    timeSinceLastPacket: number | null
+    connectionUptime: number | null
+  }
+  bridge_stats?: {
+    messagesPublished?: number
+    messagesFailed?: number
+    reconnectCount?: number
+    [key: string]: unknown
+  }
   feed_health?: FeedHealthState
   race_aggregate?: RaceAggregateState
   spectator?: SpectatorState

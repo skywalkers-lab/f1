@@ -140,7 +140,7 @@ export function SetupRecommendationPanel({ trackId }: Props) {
         <div className="setup-adjustments">
           <div className="sub-header">
             RECOMMENDED ADJUSTMENTS
-            <button className="small-btn" onClick={() => setShowAll(!showAll)}>
+            <button type="button" className="small-btn" onClick={() => setShowAll(!showAll)}>
               {showAll ? 'HIGH PRIORITY' : 'SHOW ALL'}
             </button>
           </div>
@@ -158,7 +158,7 @@ export function SetupRecommendationPanel({ trackId }: Props) {
                   {a.delta > 0 ? '+' : ''}{a.delta.toFixed(2)}
                 </span>
               </div>
-              <button className="small-btn dismiss-btn" onClick={() => handleDismiss(a.parameter)}>✗</button>
+              <button type="button" className="small-btn dismiss-btn" onClick={() => handleDismiss(a.parameter)} aria-label={`${a.parameter} dismiss`}>✗</button>
             </div>
           ))}
         </div>
@@ -166,10 +166,10 @@ export function SetupRecommendationPanel({ trackId }: Props) {
 
       {/* Apply / Refresh */}
       <div className="setup-actions">
-        <button className="action-btn" onClick={handleApply} disabled={applied || adjustments.length === 0}>
+        <button type="button" className="action-btn" onClick={handleApply} disabled={applied || adjustments.length === 0}>
           {applied ? 'APPLIED ✓' : 'APPLY RECOMMENDED SETUP'}
         </button>
-        <button className="action-btn secondary" onClick={refresh} disabled={loading}>
+        <button type="button" className="action-btn secondary" onClick={refresh} disabled={loading}>
           {loading ? 'REFRESHING...' : 'REFRESH ANALYSIS'}
         </button>
       </div>

@@ -5,7 +5,7 @@
 
 // When running inside Electron from a file:// URL the Vite proxy is not
 // available, so we need to talk directly to the backend on localhost.
-const isElectron = typeof (window as any).pitwallDesktop !== 'undefined'
+const isElectron = typeof window.pitwallDesktop !== 'undefined'
 const API_BASE = isElectron ? 'http://127.0.0.1:8765' : ''
 
 const DEFAULT_TIMEOUT_MS = 15_000

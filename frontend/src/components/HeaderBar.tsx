@@ -77,7 +77,7 @@ export const HeaderBar = memo(function HeaderBar({ state, status, evaluation, ac
       </span>
 
       <span className="header-icons">
-        {!(window as any).pitwallDesktop && (
+        {!window.pitwallDesktop && (
           <a href={`${import.meta.env.BASE_URL}download.html`} className="header-icon-btn header-download-btn" title="Download Desktop App" target="_blank" rel="noopener noreferrer">⬇ Desktop</a>
         )}
         <button type="button" className="header-icon-btn" aria-label="Settings" title="Settings" onClick={onSettingsToggle}>⚙</button>

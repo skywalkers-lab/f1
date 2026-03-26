@@ -12,6 +12,12 @@ interface UdpStats {
   connectionUptime: number | null
 }
 
+type BridgeStats = {
+  messagesPublished?: number
+  messagesFailed?: number
+  reconnectCount?: number
+}
+
 function formatBytes(bytes: number): string {
   if (bytes === 0) return '0 B'
   const k = 1024
@@ -58,13 +64,11 @@ function getConnectionStatus(udpStats: UdpStats | null, wsConnected: boolean): {
 
 export const NetworkStatusPanel = memo(function NetworkStatusPanel({ state, wsConnected }: Props) {
   const udpStats = useMemo(() => {
-    if (!state) return null
-    return (state as any).udp_stats as UdpStats | undefined
+    return state?.udp_stats
   }, [state])
 
   const bridgeStats = useMemo(() => {
-    if (!state) return null
-    return (state as any).bridge_stats as Record<string, any> | undefined
+    return state?.bridge_stats as BridgeStats | undefined
   }, [state])
 
   const connectionStatus = getConnectionStatus(udpStats ?? null, wsConnected)

@@ -95,10 +95,12 @@ export function PostRaceAnalysisView(_props: Props) {
           ) : (
             <div className="session-list">
               {sessions.map(s => (
-                <div
+                <button
                   key={s.filename}
+                  type="button"
                   className={`session-item ${selectedFile === s.filename ? 'is-selected' : ''}`}
                   onClick={() => handleSelectSession(s.filename)}
+                  aria-label={`Select session ${s.filename}`}
                 >
                   <div className="session-item-main">
                     <span className="session-track">{s.track}</span>
@@ -112,10 +114,10 @@ export function PostRaceAnalysisView(_props: Props) {
                     <span>{s.total_pit_stops} stops</span>
                   </div>
                   <div className="session-item-actions">
-                    <button className="small-btn" onClick={(e) => { e.stopPropagation(); handleExport(s.filename) }}>EXPORT</button>
-                    <button className="small-btn is-danger" onClick={(e) => { e.stopPropagation(); handleDelete(s.filename) }}>DELETE</button>
+                    <button type="button" className="small-btn" onClick={(e) => { e.stopPropagation(); handleExport(s.filename) }}>EXPORT</button>
+                    <button type="button" className="small-btn is-danger" onClick={(e) => { e.stopPropagation(); handleDelete(s.filename) }}>DELETE</button>
                   </div>
-                </div>
+                </button>
               ))}
             </div>
           )}

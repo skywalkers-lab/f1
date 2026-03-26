@@ -126,7 +126,7 @@ export function StreamOverlayView() {
       {(mode === 'full' || mode === 'timing') && (
         <div className="overlay-slot overlay-left">
           <TimingTowerOverlay
-            leaderboard={leaderboard as any}
+            leaderboard={leaderboard}
             playerCarIndex={0}
           />
         </div>

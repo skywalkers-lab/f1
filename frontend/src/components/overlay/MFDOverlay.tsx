@@ -287,10 +287,12 @@ function MFDComponent({ tyre, fuel, weather, laps, ers, damage, position }: Prop
         <button type="button" className="mfd-nav-btn" onClick={prevPage} aria-label="Previous page">◀</button>
         <div className="mfd-nav-dots">
           {MFD_PAGES.map((p, i) => (
-            <span
+            <button
               key={p}
+              type="button"
               className={`mfd-dot ${i === pageIndex ? 'is-active' : ''}`}
               onClick={() => setPageIndex(i)}
+              aria-label={`Go to ${p} page`}
             />
           ))}
         </div>

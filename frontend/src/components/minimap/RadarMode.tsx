@@ -50,8 +50,8 @@ function calculateRelativePosition(playerCar: SmoothedCar, otherCar: SmoothedCar
   // Screen X maps to world X (lateral)
   // Screen Y maps to world Z (forward track direction)
   return {
-    relX: dx * cos + dz * sin,
-    relZ: -dx * sin + dz * cos,
+    relX: dx * cos - dz * sin,
+    relZ: dx * sin + dz * cos,
   }
 }
 
@@ -99,15 +99,19 @@ function RadarModeComponent({ cars, playerCar, playerIdx, battleCars, driverCode
   // Convert radar coordinates to screen coordinates
   const toScreen = (relX: number, relZ: number) => ({
     x: centerX + relX * scale,
-    y: centerY + relZ * scale,
+    y: centerY - relZ * scale,
   })
+
+  const showHeaderAndStats = radarCars.length > 0
 
   return (
     <div className="radar-mode-container" style={{ opacity }}>
-      <div className="radar-header">
-        <div className="radar-title">TRACK RADAR</div>
-        <div className="radar-range-text">{RADAR_RANGE}m</div>
-      </div>
+      {showHeaderAndStats && (
+        <div className="radar-header">
+          <div className="radar-title">TRACK RADAR</div>
+          <div className="radar-range-text">{RADAR_RANGE}m</div>
+        </div>
+      )}
 
       <svg
         className="radar-svg"
@@ -228,6 +232,13 @@ function RadarModeComponent({ cars, playerCar, playerIdx, battleCars, driverCode
           )
         })}
 
+        {/* Empty radar hint */}
+        {radarCars.length === 0 && (
+          <text x={centerX} y={centerY + 4} textAnchor="middle" className="radar-distance-label" fill="rgba(200, 200, 200, 0.75)">
+            근처 차량 없음
+          </text>
+        )}
+
         {/* Player (center) */}
         <g className="radar-player" transform={`translate(${centerX} ${centerY})`}>
           <circle cx="0" cy="0" r="8" fill="#00ff00" opacity="0.8" />
@@ -251,16 +262,18 @@ function RadarModeComponent({ cars, playerCar, playerIdx, battleCars, driverCode
       </svg>
 
       {/* Stats */}
-      <div className="radar-stats">
-        <div className="radar-stat-item">
-          <span className="stat-label">Nearby:</span>
-          <span className="stat-value">{radarCars.length}</span>
+      {showHeaderAndStats && (
+        <div className="radar-stats">
+          <div className="radar-stat-item">
+            <span className="stat-label">Nearby:</span>
+            <span className="stat-value">{radarCars.length}</span>
+          </div>
+          <div className="radar-stat-item">
+            <span className="stat-label">Battles:</span>
+            <span className="stat-value">{radarCars.filter((c) => c.isBattle).length}</span>
+          </div>
         </div>
-        <div className="radar-stat-item">
-          <span className="stat-label">Battles:</span>
-          <span className="stat-value">{radarCars.filter((c) => c.isBattle).length}</span>
-        </div>
-      </div>
+      )}
     </div>
   )
 }

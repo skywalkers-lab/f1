@@ -54,6 +54,8 @@ function resolveNearbyRivals(cars: ReturnType<typeof useSmoothedMinimapCars>, pl
   const player = cars.find((car) => car.car_index === playerIdx)
   if (!player || player.lapRatio === null) return { ahead: null, behind: null }
 
+  const playerLapRatio = player.lapRatio
+
   let aheadIndex: number | null = null
   let aheadGap = Number.POSITIVE_INFINITY
   let behindIndex: number | null = null
@@ -62,8 +64,8 @@ function resolveNearbyRivals(cars: ReturnType<typeof useSmoothedMinimapCars>, pl
   cars.forEach((car) => {
     if (car.car_index === playerIdx || car.lapRatio === null) return
 
-    const forwardGap = wrapDelta(player.lapRatio as number, car.lapRatio)
-    const backwardGap = wrapDelta(car.lapRatio, player.lapRatio as number)
+    const forwardGap = wrapDelta(playerLapRatio, car.lapRatio)
+    const backwardGap = wrapDelta(car.lapRatio, playerLapRatio)
 
     if (forwardGap > 0 && forwardGap < aheadGap) {
       aheadIndex = car.car_index
