@@ -4,6 +4,10 @@ import { parseF1Packet } from './f1udpParser.js'
 import { AppStateBuilder } from './appStateBuilder.js'
 import { BridgeClient } from './bridgeClient.js'
 import {
+  F1_PACKET_IDS,
+  createFrameAggregator,
+} from '@f1/shared-protocol'
+import {
   JitterMonitor,
   PacketLossEstimator,
   FrameCorrectionWindow,
@@ -66,6 +70,16 @@ const frameCorrection = new FrameCorrectionWindow(4, 50)
 const sourceScorer = new SourceQualityScorer()
 // #25 Dead-reckoning fallback
 const deadReckoning = new DeadReckoningFallback(500)
+const frameAggregator = createFrameAggregator({
+  requiredPacketIds: [
+    F1_PACKET_IDS.MOTION,
+    F1_PACKET_IDS.SESSION,
+    F1_PACKET_IDS.LAP_DATA,
+    F1_PACKET_IDS.CAR_TELEMETRY,
+    F1_PACKET_IDS.CAR_STATUS,
+    F1_PACKET_IDS.PARTICIPANTS,
+  ],
+})
 
 const socket = dgram.createSocket('udp4')
 
@@ -114,6 +128,10 @@ socket.on('message', (msg, rinfo) => {
     udpStats.packetsDropped += 1
     builder.markPacketDropped()
     return
+  }
+
+  if (parsed.raw) {
+    frameAggregator.pushEnvelope(parsed.raw)
   }
 
   // #17 Record packet for loss estimation
@@ -191,6 +209,9 @@ function startTicker() {
 
     // #24 Attach source quality scores
     state.source_quality = sourceScorer.getScores()
+    state.feed_health = frameAggregator.snapshot()
+    builder.applyFeedHealth(state.feed_health)
+    state.ingest_stats.feed_health_score_pct = state.feed_health.health.scorePct
 
     // Log statistics every 30 seconds
     if (udpStats.packetsReceived % (2000 / (publishIntervalMs || 16)) === 0 && udpStats.packetsReceived > 0) {

@@ -1,11 +1,8 @@
-const PACKET_IDS = {
-  MOTION: 0,
-  SESSION: 1,
-  LAP_DATA: 2,
-  PARTICIPANTS: 4,
-  CAR_TELEMETRY: 6,
-  CAR_STATUS: 7,
-}
+import {
+  F1_PACKET_IDS,
+  createPacketEnvelope,
+  validatePacketSize,
+} from '@f1/shared-protocol'
 
 function canRead(buffer, offset, size = 1) {
   return offset + size <= buffer.length
@@ -19,25 +16,8 @@ function readString(buffer, offset, len) {
   return clipped.toString('utf8').trim()
 }
 
-function parseHeader(buffer) {
-  if (buffer.length < 29) return null
-  return {
-    packetFormat: buffer.readUInt16LE(0),
-    gameMajorVersion: buffer.readUInt8(2),
-    gameMinorVersion: buffer.readUInt8(3),
-    packetVersion: buffer.readUInt8(4),
-    packetId: buffer.readUInt8(5),
-    sessionUID: Number(buffer.readBigUInt64LE(6)),
-    sessionTime: buffer.readFloatLE(14),
-    frameIdentifier: buffer.readUInt32LE(18),
-    overallFrameIdentifier: buffer.readUInt32LE(22),
-    playerCarIndex: buffer.readUInt8(26),
-    secondaryPlayerCarIndex: buffer.readUInt8(27),
-  }
-}
-
-function parseSessionData(buffer) {
-  const o = 29
+function parseSessionData(buffer, payloadOffset) {
+  const o = payloadOffset
   return {
     weather: canRead(buffer, o, 1) ? buffer.readUInt8(o) : 0,
     sessionType: canRead(buffer, o + 5, 1) ? buffer.readUInt8(o + 5) : 0,
@@ -47,10 +27,10 @@ function parseSessionData(buffer) {
   }
 }
 
-function parseLapData(buffer) {
+function parseLapData(buffer, payloadOffset) {
   const entryLen = 58
   const out = []
-  let offset = 29
+  let offset = payloadOffset
   for (let i = 0; i < 22; i += 1) {
     if (!canRead(buffer, offset, entryLen)) break
     out.push({
@@ -73,10 +53,10 @@ function parseLapData(buffer) {
   return out
 }
 
-function parseTelemetryData(buffer) {
+function parseTelemetryData(buffer, payloadOffset) {
   const entryLen = 60
   const out = []
-  let offset = 29
+  let offset = payloadOffset
   for (let i = 0; i < 22; i += 1) {
     if (!canRead(buffer, offset, entryLen)) break
     out.push({
@@ -93,10 +73,10 @@ function parseTelemetryData(buffer) {
   return out
 }
 
-function parseCarStatus(buffer) {
+function parseCarStatus(buffer, payloadOffset) {
   const entryLen = 45
   const out = []
-  let offset = 29
+  let offset = payloadOffset
   for (let i = 0; i < 22; i += 1) {
     if (!canRead(buffer, offset, entryLen)) break
     out.push({
@@ -111,10 +91,10 @@ function parseCarStatus(buffer) {
   return out
 }
 
-function parseParticipants(buffer) {
-  const numCars = canRead(buffer, 29, 1) ? buffer.readUInt8(29) : 22
+function parseParticipants(buffer, payloadOffset) {
+  const numCars = canRead(buffer, payloadOffset, 1) ? buffer.readUInt8(payloadOffset) : 22
   const entryLen = 58
-  let offset = 30
+  let offset = payloadOffset + 1
   const out = []
 
   for (let i = 0; i < numCars; i += 1) {
@@ -131,9 +111,9 @@ function parseParticipants(buffer) {
   return out
 }
 
-function parseMotion(buffer) {
+function parseMotion(buffer, payloadOffset) {
   const entryLen = 60
-  let offset = 29
+  let offset = payloadOffset
   const out = []
   for (let i = 0; i < 22; i += 1) {
     if (!canRead(buffer, offset, entryLen)) break
@@ -152,23 +132,55 @@ function parseMotion(buffer) {
 }
 
 export function parseF1Packet(buffer) {
-  const header = parseHeader(buffer)
-  if (!header) return null
+  const envelope = createPacketEnvelope(buffer, 'udp_local_bridge')
+  if (!envelope) return null
+
+  const sizeCheck = validatePacketSize(envelope.header.packetId, buffer.length)
+
+  const header = {
+    ...envelope.header,
+    // Keep legacy numeric field to avoid breaking existing state assignment.
+    sessionUID: Number(envelope.header.sessionUID) || 0,
+  }
+  const payloadOffset = header.headerSize || 29
+  const meta = {
+    sizeCheck,
+  }
 
   switch (header.packetId) {
-    case PACKET_IDS.SESSION:
-      return { header, type: 'session', data: parseSessionData(buffer) }
-    case PACKET_IDS.LAP_DATA:
-      return { header, type: 'lap', data: parseLapData(buffer) }
-    case PACKET_IDS.CAR_TELEMETRY:
-      return { header, type: 'telemetry', data: parseTelemetryData(buffer) }
-    case PACKET_IDS.CAR_STATUS:
-      return { header, type: 'status', data: parseCarStatus(buffer) }
-    case PACKET_IDS.PARTICIPANTS:
-      return { header, type: 'participants', data: parseParticipants(buffer) }
-    case PACKET_IDS.MOTION:
-      return { header, type: 'motion', data: parseMotion(buffer) }
+    case F1_PACKET_IDS.SESSION:
+      return { header, type: 'session', data: parseSessionData(buffer, payloadOffset), raw: envelope, meta }
+    case F1_PACKET_IDS.LAP_DATA:
+      return { header, type: 'lap', data: parseLapData(buffer, payloadOffset), raw: envelope, meta }
+    case F1_PACKET_IDS.CAR_TELEMETRY:
+      return { header, type: 'telemetry', data: parseTelemetryData(buffer, payloadOffset), raw: envelope, meta }
+    case F1_PACKET_IDS.CAR_STATUS:
+      return { header, type: 'status', data: parseCarStatus(buffer, payloadOffset), raw: envelope, meta }
+    case F1_PACKET_IDS.PARTICIPANTS:
+      return { header, type: 'participants', data: parseParticipants(buffer, payloadOffset), raw: envelope, meta }
+    case F1_PACKET_IDS.MOTION:
+      return { header, type: 'motion', data: parseMotion(buffer, payloadOffset), raw: envelope, meta }
+    case F1_PACKET_IDS.EVENT:
+      return { header, type: 'event', data: null, raw: envelope, meta }
+    case F1_PACKET_IDS.CAR_SETUPS:
+      return { header, type: 'car_setups', data: null, raw: envelope, meta }
+    case F1_PACKET_IDS.FINAL_CLASSIFICATION:
+      return { header, type: 'final_classification', data: null, raw: envelope, meta }
+    case F1_PACKET_IDS.LOBBY_INFO:
+      return { header, type: 'lobby_info', data: null, raw: envelope, meta }
+    case F1_PACKET_IDS.CAR_DAMAGE:
+      return { header, type: 'car_damage', data: null, raw: envelope, meta }
+    case F1_PACKET_IDS.SESSION_HISTORY:
+      return { header, type: 'session_history', data: null, raw: envelope, meta }
+    case F1_PACKET_IDS.TYRE_SETS:
+      return { header, type: 'tyre_sets', data: null, raw: envelope, meta }
+    case F1_PACKET_IDS.MOTION_EX:
+      return { header, type: 'motion_ex', data: null, raw: envelope, meta }
+    case F1_PACKET_IDS.TIME_TRIAL:
+      return { header, type: 'time_trial', data: null, raw: envelope, meta }
+    case F1_PACKET_IDS.LAP_POSITIONS:
+      return { header, type: 'lap_positions', data: null, raw: envelope, meta }
     default:
-      return { header, type: 'unknown', data: null }
+      return { header, type: 'unknown', data: null, raw: envelope, meta }
   }
 }

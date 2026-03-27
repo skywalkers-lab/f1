@@ -75,6 +75,20 @@ function defaultLeaderboardRow(index) {
 
 function createEmptyState(playerCarIndex = 0) {
   return {
+    raw: {
+      last_packets_by_type: {},
+      recent_packets: [],
+      latest_packet_payloads: {},
+    },
+    derived: {
+      schema_version: 1,
+      telemetry_feed: {
+        score_pct: 0,
+        band: 'unknown',
+        coverage_ratio: 0,
+        avg_jitter_ms: 0,
+      },
+    },
     session_uid: 0,
     packet_format: 2025,
     packet_version: 1,
@@ -142,7 +156,9 @@ function createEmptyState(playerCarIndex = 0) {
       packets_dropped: 0,
       duplicate_packets: 0,
       decode_errors: 0,
+      size_validation_failures: 0,
       last_packet_type: 'NONE',
+      feed_health_score_pct: 0,
     },
     last_update_iso: new Date(0).toISOString(),
   }
@@ -173,7 +189,7 @@ export class AppStateBuilder {
   applyPacket(parsed) {
     this.markPacketReceived()
 
-    const { header, type, data } = parsed
+    const { header, type, data, raw, meta } = parsed
     if (!header) {
       this.state.ingest_stats.decode_errors += 1
       return
@@ -191,6 +207,36 @@ export class AppStateBuilder {
     this.state.player_car_index = header.playerCarIndex
     this.playerCarIndex = header.playerCarIndex
     this.state.minimap.player_car_index = header.playerCarIndex
+
+    if (raw) {
+      this.state.raw.last_packets_by_type[type] = {
+        receivedAtMs: raw.receivedAtMs,
+        byteLength: raw.byteLength,
+        checksumSha1: raw.checksumSha1,
+        header: raw.header,
+      }
+      this.state.raw.latest_packet_payloads[type] = {
+        packetId: raw.header.packetId,
+        packetName: raw.header.packetName,
+        frameIdentifier: raw.header.frameIdentifier,
+        receivedAtMs: raw.receivedAtMs,
+        rawBase64: raw.rawBase64,
+      }
+      this.state.raw.recent_packets.push({
+        type,
+        frameIdentifier: header.frameIdentifier,
+        packetId: header.packetId,
+        byteLength: raw.byteLength,
+        receivedAtMs: raw.receivedAtMs,
+      })
+      if (this.state.raw.recent_packets.length > 120) {
+        this.state.raw.recent_packets.splice(0, this.state.raw.recent_packets.length - 120)
+      }
+    }
+
+    if (meta?.sizeCheck?.ok === false) {
+      this.state.ingest_stats.size_validation_failures += 1
+    }
 
     switch (type) {
       case 'session': {
@@ -242,6 +288,18 @@ export class AppStateBuilder {
     this.rebuildStrategy()
 
     this.state.last_update_iso = new Date().toISOString()
+  }
+
+  applyFeedHealth(feedHealth) {
+    if (!feedHealth || typeof feedHealth !== 'object') return
+    const health = feedHealth.health || {}
+    this.state.ingest_stats.feed_health_score_pct = Number(health.scorePct || 0)
+    this.state.derived.telemetry_feed = {
+      score_pct: Number(health.scorePct || 0),
+      band: health.band || 'unknown',
+      coverage_ratio: Number(feedHealth.coverageRatio || 0),
+      avg_jitter_ms: Number(feedHealth.avgJitterMs || 0),
+    }
   }
 
   rebuildPlayer() {
