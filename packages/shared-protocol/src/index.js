@@ -2,13 +2,17 @@ export {
   PROTOCOL_VERSION,
   COMMAND_TYPES,
   COMMAND_PRIORITIES,
+  COMMAND_SOURCES,
   clampCommandTtl,
+  isCommandExpired,
+  remainingCommandTtl,
   validateAndNormalizeCommand,
 } from './commandProtocol.js'
 
 export {
   WS_MESSAGE_TYPES,
   buildProtocolEnvelope,
+  validateProtocolEnvelope,
 } from './wsProtocol.js'
 
 export {
