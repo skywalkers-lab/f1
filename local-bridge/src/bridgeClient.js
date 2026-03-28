@@ -119,7 +119,7 @@ export class BridgeClient {
     }
   }
 
-  publish(state) {
+  publish(state, profile = 'engineer') {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
       this.stats.messagesFailed += 1
       return false
@@ -136,6 +136,7 @@ export class BridgeClient {
           sourceClientId: this.bridgeId,
           seq: this.seq,
           sessionId: resolvedSessionId,
+          profile,
           ts: Date.now(),
           payload: state,
         }),

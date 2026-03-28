@@ -4,9 +4,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "node src/index.js"
+    "start": "node src/index.js",
+    "test": "node --test test/*.test.js"
   },
   "dependencies": {
+    "@f1/shared-protocol": "file:../packages/shared-protocol",
     "dotenv": "^16.6.1",
     "ws": "^8.18.3"
   }

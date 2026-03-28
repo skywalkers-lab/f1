@@ -35,7 +35,7 @@ export interface TelemetryStore {
   getMetrics(): StoreMetrics
   getConnectionStatus(): ConnectionStatus
   setConnectionStatus(status: ConnectionStatus): void
-  getSessionUid(): number
+  getSessionUid(): string
 }
 
 export type StoreMetrics = {
@@ -190,8 +190,8 @@ export function createTelemetryStore(): TelemetryStore {
       metrics.connectionStatus = status
     },
 
-    getSessionUid(): number {
-      return state?.session_uid ?? 0
+    getSessionUid(): string {
+      return state?.session_uid ?? '0'
     },
   }
 }

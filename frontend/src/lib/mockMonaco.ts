@@ -405,7 +405,7 @@ export function createMonacoDemoStream(onState: (s: AppState) => void, onStatus:
     const raceControlState = cautionWindow ? 'YELLOW' : 'GREEN'
 
     const nextState: AppState = {
-      session_uid: sim.sessionUid,
+      session_uid: String(sim.sessionUid),
       packet_format: 2024,
       packet_version: 1,
       last_frame_identifier: Math.floor(sim.elapsedSec / TICK_SEC),

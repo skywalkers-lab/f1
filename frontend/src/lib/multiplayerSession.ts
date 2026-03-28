@@ -68,6 +68,7 @@ export function createRelayWsUrl(baseWsUrl: string, args: {
   role: RoomRole
   clientId: string
   authToken: string
+  encoding?: 'msgpack' | 'json'
 }): string {
   const u = new URL(baseWsUrl)
   u.searchParams.set('role', 'viewer')
@@ -75,5 +76,6 @@ export function createRelayWsUrl(baseWsUrl: string, args: {
   u.searchParams.set('sessionId', args.roomId)
   u.searchParams.set('clientId', args.clientId)
   u.searchParams.set('auth', args.authToken)
+  u.searchParams.set('encoding', args.encoding || 'msgpack')
   return u.toString()
 }

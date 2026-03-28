@@ -13,9 +13,9 @@ const DEBOUNCE_MS = 1500
  */
 export function useSessionResetDebounce(
   state: AppState | null,
-  onReset: (newUid: number, oldUid: number) => void,
+  onReset: (newUid: string, oldUid: string) => void,
 ) {
-  const prevUid = useRef<number | null>(null)
+  const prevUid = useRef<string | null>(null)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const stableOnReset = useCallback(onReset, [onReset])
 

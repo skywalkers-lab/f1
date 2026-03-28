@@ -77,7 +77,7 @@ export function raceControlLabel(state: string): { label: string; severity: 'gre
 export function isValidSnapshot(data: unknown): data is AppState {
   if (!data || typeof data !== 'object') return false
   const obj = data as Record<string, unknown>
-  if (typeof obj.session_uid !== 'number') return false
+  if (typeof obj.session_uid !== 'string' && typeof obj.session_uid !== 'number') return false
   if (!obj.player || typeof obj.player !== 'object') return false
   return true
 }
@@ -86,7 +86,7 @@ export function isValidSnapshot(data: unknown): data is AppState {
 // ── Normalizer ─────────────────────────────────────────────────────────
 
 const DEFAULTS = {
-  session_uid: 0,
+  session_uid: '0',
   packet_format: 0,
   packet_version: 0,
   last_frame_identifier: 0,
@@ -200,6 +200,7 @@ export function normalizeSnapshot(raw: unknown): AppState | null {
   return {
     ...DEFAULTS,
     ...data,
+    session_uid: String(data.session_uid ?? '0'),
     player,
     leaderboard,
     pace,
@@ -328,7 +329,7 @@ function assessStrategyUrgency(state: AppState): DerivedMetrics['strategyUrgency
 
 // ── Position Tracking ──────────────────────────────────────────────────
 
-let _sessionUid = 0
+let _sessionUid = '0'
 let _startPosition = 0
 
 function trackPosition(state: AppState): number {

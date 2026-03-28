@@ -139,8 +139,8 @@ export function parseF1Packet(buffer) {
 
   const header = {
     ...envelope.header,
-    // Keep legacy numeric field to avoid breaking existing state assignment.
-    sessionUID: Number(envelope.header.sessionUID) || 0,
+    // Keep session UID lossless across JS boundaries.
+    sessionUID: String(envelope.header.sessionUID || '0'),
   }
   const payloadOffset = header.headerSize || 29
   const meta = {

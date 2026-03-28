@@ -5,6 +5,7 @@ import { createLogger } from './logger'
 import { normalizeSnapshot } from './normalizer'
 import { getStore } from './store'
 import { createRelayWsUrl, refreshRoomAuth, type RoomRole } from './multiplayerSession'
+import { decodeRelayMessage } from './wsDecode'
 import {
   SESSION_ID,
   WS_RELAY_URL,
@@ -134,6 +135,7 @@ function withSessionQuery(baseUrl: string, params: Record<string, string>): stri
 const urlQuery = new URLSearchParams(window.location.search)
 const VIEWER_ROLE = urlQuery.get('viewerRole') || 'spectator'
 const INITIAL_AUTH_TOKEN = urlQuery.get('auth') || ''
+const WS_ENCODING = (urlQuery.get('encoding') || 'msgpack').toLowerCase() === 'json' ? 'json' : 'msgpack'
 const VIEWER_CLIENT_ID =
   urlQuery.get('clientId') ||
   `viewer-${Math.random().toString(36).slice(2, 10)}`
@@ -171,6 +173,7 @@ function getWsCandidates(runtime: RuntimeConnection): string[] {
         role: roomRole,
         clientId: runtime.clientId,
         authToken: roomAuthToken,
+        encoding: WS_ENCODING,
       }),
     )
   }
@@ -181,6 +184,7 @@ function getWsCandidates(runtime: RuntimeConnection): string[] {
       viewerRole: runtime.viewerRole,
       sessionId: runtime.roomId,
       clientId: runtime.clientId,
+      encoding: WS_ENCODING,
     }),
   )
 }
@@ -447,6 +451,7 @@ export function connectState(onState: (s: AppState) => void, onStatus: (s: strin
     traceId = newTraceId()
     log.info('connecting', { url: wsUrl, traceId, viewerRole: runtimeViewerRole })
     ws = new WebSocket(wsUrl)
+    ws.binaryType = 'arraybuffer'
     onStatus('connecting')
 
     clearConnectWatchdog()
@@ -520,9 +525,10 @@ export function connectState(onState: (s: AppState) => void, onStatus: (s: strin
     ws.onmessage = (ev) => {
       lastSocketAt = Date.now()
       try {
-        const data = JSON.parse(ev.data) as
-          | AppState
-          | { type: string; payload?: AppState }
+        const data = decodeRelayMessage(ev.data)
+        if (!data) {
+          throw new Error('decode failed')
+        }
 
         if ('type' in data && data.type === 'heartbeat') {
           if (ws?.readyState === WebSocket.OPEN) ws.send('pong')
