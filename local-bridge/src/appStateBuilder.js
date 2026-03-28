@@ -89,7 +89,7 @@ function createEmptyState(playerCarIndex = 0) {
         avg_jitter_ms: 0,
       },
     },
-    session_uid: 0,
+    session_uid: '0',
     packet_format: 2025,
     packet_version: 1,
     last_frame_identifier: 0,
@@ -162,6 +162,89 @@ function createEmptyState(playerCarIndex = 0) {
     },
     last_update_iso: new Date(0).toISOString(),
   }
+}
+
+function cloneJson(obj) {
+  return JSON.parse(JSON.stringify(obj))
+}
+
+function profileSnapshot(state, profile = 'engineer') {
+  const normalizedProfile = ['engineer', 'hud', 'overlay', 'debug'].includes(profile)
+    ? profile
+    : 'engineer'
+
+  const full = cloneJson(state)
+  if (normalizedProfile === 'debug') {
+    full.profile = 'debug'
+    return full
+  }
+
+  const base = {
+    profile: normalizedProfile,
+    session_uid: full.session_uid,
+    packet_format: full.packet_format,
+    packet_version: full.packet_version,
+    last_frame_identifier: full.last_frame_identifier,
+    session_type: full.session_type,
+    track: full.track,
+    weather_state: full.weather_state,
+    total_laps: full.total_laps,
+    race_control_state: full.race_control_state,
+    player_car_index: full.player_car_index,
+    player: full.player,
+    leaderboard: full.leaderboard,
+    pace: full.pace,
+    strategy: full.strategy,
+    minimap: full.minimap,
+    last_event_summary: full.last_event_summary,
+    ingest_stats: full.ingest_stats,
+    derived: full.derived,
+    feed_health: full.feed_health,
+    last_update_iso: full.last_update_iso,
+  }
+
+  if (normalizedProfile === 'overlay') {
+    return {
+      profile: 'overlay',
+      session_uid: base.session_uid,
+      last_frame_identifier: base.last_frame_identifier,
+      race_control_state: base.race_control_state,
+      player: {
+        lap: base.player?.lap || 0,
+        position: base.player?.position || 0,
+        speed: base.player?.speed || 0,
+        throttle: base.player?.throttle || 0,
+        brake: base.player?.brake || 0,
+        gear: base.player?.gear || 0,
+      },
+      strategy: {
+        action: base.strategy?.action || 'STAY_OUT',
+        confidence: base.strategy?.confidence || 'low',
+        reason: base.strategy?.reason || '',
+      },
+      last_event_summary: base.last_event_summary,
+      last_update_iso: base.last_update_iso,
+    }
+  }
+
+  if (normalizedProfile === 'hud') {
+    return {
+      profile: 'hud',
+      session_uid: base.session_uid,
+      last_frame_identifier: base.last_frame_identifier,
+      race_control_state: base.race_control_state,
+      player: base.player,
+      minimap: {
+        mode: base.minimap?.mode,
+        player_car_index: base.minimap?.player_car_index,
+        cars: base.minimap?.cars || [],
+      },
+      last_event_summary: base.last_event_summary,
+      last_update_iso: base.last_update_iso,
+    }
+  }
+
+  return base
 }
 
 export class AppStateBuilder {
@@ -490,7 +573,7 @@ export class AppStateBuilder {
     }
   }
 
-  snapshot() {
-    return this.state
+  snapshot(profile = 'engineer') {
+    return profileSnapshot(this.state, profile)
   }
 }

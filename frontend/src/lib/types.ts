@@ -1,5 +1,5 @@
 export type AppState = {
-  session_uid: number
+  session_uid: string
   packet_format: number
   packet_version: number
   last_frame_identifier: number

@@ -54,7 +54,7 @@ export type SessionSummary = {
 
 export type SessionData = {
   metadata: {
-    session_uid: number
+    session_uid: string
     track: string
     session_type: string
     total_laps: number
@@ -113,7 +113,7 @@ export type SessionData = {
   integrity_valid: boolean
 }
 
-export async function startRecording(): Promise<{ ok: boolean; session_uid?: number }> {
+export async function startRecording(): Promise<{ ok: boolean; session_uid?: string }> {
   return apiFetch(`${API_BASE}/sessions/start`, { method: 'POST' })
 }
 
@@ -121,7 +121,7 @@ export async function stopRecording(): Promise<{ ok: boolean; path?: string }> {
   return apiFetch(`${API_BASE}/sessions/stop`, { method: 'POST' })
 }
 
-export async function getRecordingStatus(): Promise<{ active: boolean; session_uid: number }> {
+export async function getRecordingStatus(): Promise<{ active: boolean; session_uid: string }> {
   return apiFetch(`${API_BASE}/sessions/status`)
 }
 

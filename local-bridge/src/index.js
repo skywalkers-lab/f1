@@ -27,6 +27,7 @@ const CLIENT_MODE = (process.env.CLIENT_MODE || (DRIVER_AUTH_TOKEN ? 'driver' : 
 const SESSION_ID = process.env.SESSION_ID || 'public'
 const PUBLISH_HZ = Number(process.env.PUBLISH_HZ || 15)
 const PLAYER_CAR_INDEX = Number(process.env.PLAYER_CAR_INDEX || 0)
+const PUBLISH_PROFILE = String(process.env.PUBLISH_PROFILE || (CLIENT_MODE === 'driver' ? 'hud' : 'engineer')).toLowerCase()
 
 // Watchdog timer configuration
 const UDP_TIMEOUT_MS = Number(process.env.UDP_TIMEOUT_MS || 5000)
@@ -186,7 +187,8 @@ function startTicker() {
       try { builder.applyPacket(pkt) } catch { /* already logged */ }
     }
 
-    const state = builder.snapshot()
+    builder.applyFeedHealth(frameAggregator.snapshot())
+    const state = builder.snapshot(PUBLISH_PROFILE)
 
     // Attach UDP stats to state for monitoring
     state.udp_stats = {
@@ -210,8 +212,9 @@ function startTicker() {
     // #24 Attach source quality scores
     state.source_quality = sourceScorer.getScores()
     state.feed_health = frameAggregator.snapshot()
-    builder.applyFeedHealth(state.feed_health)
-    state.ingest_stats.feed_health_score_pct = state.feed_health.health.scorePct
+    if (state.ingest_stats && state.feed_health?.health) {
+      state.ingest_stats.feed_health_score_pct = state.feed_health.health.scorePct
+    }
 
     // Log statistics every 30 seconds
     if (udpStats.packetsReceived % (2000 / (publishIntervalMs || 16)) === 0 && udpStats.packetsReceived > 0) {
@@ -219,7 +222,7 @@ function startTicker() {
       console.log(`[bridge] UDP stats - received: ${udpStats.packetsReceived}, dropped: ${udpStats.packetsDropped}, errors: ${udpStats.decodeErrors}, connected: ${udpStats.isConnected}, jitter: ${jStats.jitterMs}ms, adaptedHz: ${jStats.adaptedHz}`)
     }
 
-    bridge.publish(state)
+    bridge.publish(state, PUBLISH_PROFILE)
 
     // #16 Adapt publish rate based on jitter
     const newInterval = jitterMonitor.getAdaptedIntervalMs()

@@ -7,6 +7,85 @@ on:
     branches: [main]
 
 jobs:
+  shared-protocol-tests:
+    name: Shared Protocol Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/shared-protocol
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install
+          fi
+
+      - name: Run tests
+        run: npm test
+
+  relay-server-tests:
+    name: Relay Server Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: relay-server
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: relay-server/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install
+          fi
+
+      - name: Run tests
+        run: npm test
+
+  local-bridge-tests:
+    name: Local Bridge Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: local-bridge
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: local-bridge/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install
+          fi
+
+      - name: Run tests
+        run: npm test
+
   backend-tests:
     name: Backend Tests
     runs-on: ubuntu-latest
@@ -50,6 +129,9 @@ jobs:
           else
             npm install
           fi
+
+      - name: Frontend tests
+        run: npm test
 
       - name: TypeScript type check
         run: npx tsc --noEmit

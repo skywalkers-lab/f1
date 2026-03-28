@@ -2,17 +2,27 @@ import http from 'node:http'
 import { URL } from 'node:url'
 import { randomUUID } from 'node:crypto'
 import { WebSocketServer } from 'ws'
+import {
+  Counter,
+  Gauge,
+  Histogram,
+  Registry,
+  collectDefaultMetrics,
+} from 'prom-client'
 import { config } from './config.js'
 import { StrategyTrainer } from './strategyTrainer.js'
 import { BackpressureQueue } from './backpressure.js'
-import { negotiateEncoding, serializeFrame } from './msgpack.js'
+import { decodeEnvelope, encodeFrame, negotiateEncoding } from './msgpack.js'
 import { validateSignedToken } from './tokenRotation.js'
 import { hashPassword, issueRoomJwt, verifyPassword, verifyRoomJwt } from './auth.js'
+import { initOtel } from './otel.js'
 
 const trainer = new StrategyTrainer({
   modelPath: config.modelPath,
   feedbackLogPath: config.feedbackLogPath,
 })
+
+const otel = await initOtel('pitwall-relay-server')
 
 const sessions = new Map()
 const viewers = new Set()
@@ -36,6 +46,47 @@ const serverMetrics = {
   commandAcked: 0,
   authRejected: 0,
 }
+
+const promRegistry = new Registry()
+collectDefaultMetrics({ register: promRegistry })
+
+const metricWsConnectedClients = new Gauge({
+  name: 'pitwall_ws_connected_clients',
+  help: 'Connected websocket clients by role',
+  labelNames: ['role'],
+  registers: [promRegistry],
+})
+const metricSessionActiveCount = new Gauge({
+  name: 'pitwall_session_active_count',
+  help: 'Active session count',
+  registers: [promRegistry],
+})
+const metricFanoutDuration = new Histogram({
+  name: 'pitwall_fanout_frame_duration_seconds',
+  help: 'Frame fanout duration in seconds',
+  buckets: [0.001, 0.003, 0.005, 0.01, 0.02, 0.05, 0.1],
+  registers: [promRegistry],
+})
+const metricIngestDrop = new Counter({
+  name: 'pitwall_ingest_drop_total',
+  help: 'Dropped ingest frames by reason',
+  labelNames: ['reason'],
+  registers: [promRegistry],
+})
+const metricWsSendBytes = new Counter({
+  name: 'pitwall_ws_send_bytes_total',
+  help: 'Total websocket bytes sent by encoding',
+  labelNames: ['encoding'],
+  registers: [promRegistry],
+})
+const metricStateAgeMs = new Gauge({
+  name: 'pitwall_state_age_ms',
+  help: 'Latest state age in milliseconds',
+  registers: [promRegistry],
+})
+
+metricWsConnectedClients.set({ role: 'viewer' }, 0)
+metricWsConnectedClients.set({ role: 'bridge' }, 0)
 
 function parseAuthorizationBearer(req) {
   const raw = String(req.headers.authorization || '')
@@ -188,6 +239,7 @@ function getOrCreateSession(sessionId) {
   }, sessionTickMs)
 
   sessions.set(key, room)
+  metricSessionActiveCount.set(sessions.size)
   return room
 }
 
@@ -283,30 +335,53 @@ function extractContextFromState(state) {
 }
 
 function fanoutSessionFrame(room, frame) {
-  const jsonSerialized = JSON.stringify(frame)
-  const msgpackSerialized = serializeFrame(frame, 'msgpack')
+  const fanoutTimer = metricFanoutDuration.startTimer()
+  const span = otel.tracer.startSpan('relay.fanout')
+  const jsonFrame = {
+    ...frame,
+    meta: {
+      ...(frame.meta || {}),
+      encoding: 'json',
+      serverTs: Date.now(),
+    },
+  }
+  const msgpackFrame = {
+    ...frame,
+    meta: {
+      ...(frame.meta || {}),
+      encoding: 'msgpack',
+      serverTs: Date.now(),
+    },
+  }
+  const jsonEncoded = encodeFrame(jsonFrame, 'json')
+  const msgpackEncoded = encodeFrame(msgpackFrame, 'msgpack')
 
   for (const ws of room.viewers) {
     if (ws.readyState !== ws.OPEN) continue
-    const serialized = ws.encoding === 'msgpack' ? msgpackSerialized : jsonSerialized
+    const encoded = ws.encoding === 'msgpack' ? msgpackEncoded : jsonEncoded
+    const bytes = typeof encoded.data === 'string' ? Buffer.byteLength(encoded.data) : encoded.data.length
+    metricWsSendBytes.inc({ encoding: ws.encoding === 'msgpack' ? 'msgpack' : 'json' }, bytes)
     if (ws._bpQueue) {
-      ws._bpQueue.enqueue(serialized)
+      ws._bpQueue.enqueue(encoded.data, encoded.isBinary)
     } else {
-      try { ws.send(serialized) } catch { /* closed mid-send */ }
+      try { ws.send(encoded.data, { binary: encoded.isBinary }) } catch { /* closed mid-send */ }
     }
   }
   for (const ws of room.bridges) {
-    if (ws.readyState === ws.OPEN) ws.send(jsonSerialized)
+    if (ws.readyState === ws.OPEN) ws.send(jsonEncoded.data)
   }
   for (const res of room.sseClients) {
     try {
       res.write(`id: ${frame.eventId}\n`)
       res.write('event: state\n')
-      res.write(`data: ${jsonSerialized}\n\n`)
+      res.write(`data: ${jsonEncoded.data}\n\n`)
     } catch {
       room.sseClients.delete(res)
     }
   }
+
+  span.end()
+  fanoutTimer()
 }
 
 function broadcastToViewers(room, predicate, frame) {
@@ -345,7 +420,14 @@ function publishToRoom(room, payload, meta) {
     meta: {
       ...meta,
       eventId: room.lastEventId,
+      sessionUID: String(payload?.session_uid || ''),
+      frameId: Number(payload?.last_frame_identifier || meta?.frameId || 0),
+      serverTs: Date.now(),
     },
+  }
+
+  if (room.latestMeta?.ts) {
+    metricStateAgeMs.set(Math.max(0, Date.now() - room.latestMeta.ts))
   }
 
   room.recentFrames.push(frame)
@@ -366,16 +448,19 @@ function shouldAcceptBridgeFrame(room, source, seq, frameId) {
   if (hasSeq && seq <= wm.lastSeq) {
     room.metrics.droppedOutOfOrder += 1
     serverMetrics.wsDroppedOutOfOrder += 1
+    metricIngestDrop.inc({ reason: 'out_of_order' })
     return false
   }
   if (hasFrame && frameId === wm.lastFrameId) {
     room.metrics.droppedDuplicate += 1
     serverMetrics.wsDroppedDuplicate += 1
+    metricIngestDrop.inc({ reason: 'duplicate' })
     return false
   }
   if (hasFrame && frameId < wm.lastFrameId) {
     room.metrics.droppedOutOfOrder += 1
     serverMetrics.wsDroppedOutOfOrder += 1
+    metricIngestDrop.inc({ reason: 'frame_regression' })
     return false
   }
 
@@ -601,56 +686,12 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (req.method === 'GET' && parsed.pathname === '/metrics' && config.enablePrometheusMetrics) {
-    const body = [
-      '# HELP relay_http_requests_total Total HTTP requests',
-      '# TYPE relay_http_requests_total counter',
-      `relay_http_requests_total ${serverMetrics.httpRequests}`,
-      '# HELP relay_http_4xx_total Total HTTP 4xx responses',
-      '# TYPE relay_http_4xx_total counter',
-      `relay_http_4xx_total ${serverMetrics.http4xx}`,
-      '# HELP relay_http_5xx_total Total HTTP 5xx responses',
-      '# TYPE relay_http_5xx_total counter',
-      `relay_http_5xx_total ${serverMetrics.http5xx}`,
-      '# HELP relay_ws_connections_total Total WebSocket connections',
-      '# TYPE relay_ws_connections_total counter',
-      `relay_ws_connections_total ${serverMetrics.wsConnections}`,
-      '# HELP relay_ws_messages_total Total bridge websocket messages',
-      '# TYPE relay_ws_messages_total counter',
-      `relay_ws_messages_total ${serverMetrics.wsMessages}`,
-      '# HELP relay_ws_accepted_total Total accepted frames',
-      '# TYPE relay_ws_accepted_total counter',
-      `relay_ws_accepted_total ${serverMetrics.wsAccepted}`,
-      '# HELP relay_ws_dropped_out_of_order_total Out-of-order frame drops',
-      '# TYPE relay_ws_dropped_out_of_order_total counter',
-      `relay_ws_dropped_out_of_order_total ${serverMetrics.wsDroppedOutOfOrder}`,
-      '# HELP relay_ws_dropped_duplicate_total Duplicate frame drops',
-      '# TYPE relay_ws_dropped_duplicate_total counter',
-      `relay_ws_dropped_duplicate_total ${serverMetrics.wsDroppedDuplicate}`,
-      '# HELP relay_rate_limited_total Rate-limited requests',
-      '# TYPE relay_rate_limited_total counter',
-      `relay_rate_limited_total ${serverMetrics.rateLimited}`,
-      '# HELP relay_auth_rejected_total Rejected auth attempts',
-      '# TYPE relay_auth_rejected_total counter',
-      `relay_auth_rejected_total ${serverMetrics.authRejected}`,
-      '# HELP relay_commands_submitted_total Submitted engineer commands',
-      '# TYPE relay_commands_submitted_total counter',
-      `relay_commands_submitted_total ${serverMetrics.commandSubmitted}`,
-      '# HELP relay_commands_acked_total Driver command acknowledgments',
-      '# TYPE relay_commands_acked_total counter',
-      `relay_commands_acked_total ${serverMetrics.commandAcked}`,
-      '# HELP relay_active_sessions Active session rooms',
-      '# TYPE relay_active_sessions gauge',
-      `relay_active_sessions ${sessions.size}`,
-      '# HELP relay_active_viewers Active viewer sockets',
-      '# TYPE relay_active_viewers gauge',
-      `relay_active_viewers ${viewers.size}`,
-      '# HELP relay_active_bridges Active bridge sockets',
-      '# TYPE relay_active_bridges gauge',
-      `relay_active_bridges ${bridges.size}`,
-    ].join('\n') + '\n'
+    metricSessionActiveCount.set(sessions.size)
+    metricWsConnectedClients.set({ role: 'viewer' }, viewers.size)
+    metricWsConnectedClients.set({ role: 'bridge' }, bridges.size)
 
-    res.writeHead(200, { 'Content-Type': 'text/plain; version=0.0.4; charset=utf-8' })
-    res.end(body)
+    res.writeHead(200, { 'Content-Type': promRegistry.contentType })
+    res.end(await promRegistry.metrics())
     return
   }
 
@@ -892,10 +933,12 @@ wss.on('connection', (ws, req, url) => {
   if (role === 'bridge') {
     bridges.add(ws)
     room.bridges.add(ws)
+    metricWsConnectedClients.set({ role: 'bridge' }, bridges.size)
     ws.send(JSON.stringify({ type: 'ready', role: 'bridge', sessionId }))
   } else {
     viewers.add(ws)
     room.viewers.add(ws)
+    metricWsConnectedClients.set({ role: 'viewer' }, viewers.size)
     room.participants.set(clientId, {
       clientId,
       role: viewerRole,
@@ -927,10 +970,9 @@ wss.on('connection', (ws, req, url) => {
 
   ws.on('message', (raw) => {
     serverMetrics.wsMessages += 1
-    let parsed
-    try {
-      parsed = JSON.parse(String(raw))
-    } catch {
+    const encodingHint = ws.role === 'bridge' ? 'json' : ws.encoding
+    const parsed = decodeEnvelope(raw, encodingHint)
+    if (!parsed || typeof parsed !== 'object') {
       return
     }
 
@@ -1018,6 +1060,7 @@ wss.on('connection', (ws, req, url) => {
           source,
           seq: Number.isFinite(seq) ? seq : 0,
           frameId: Number.isFinite(frameId) ? frameId : null,
+          profile: String(parsed.profile || parsed?.payload?.profile || 'hud'),
           at: nowIso(),
           sessionId,
           delta: parsed.type === 'telemetry_delta',
@@ -1043,6 +1086,7 @@ wss.on('connection', (ws, req, url) => {
       source,
       seq: Number.isFinite(seq) ? seq : 0,
       frameId: Number.isFinite(frameId) ? frameId : null,
+      profile: String(parsed.profile || parsed?.payload?.profile || 'engineer'),
       at: nowIso(),
       sessionId,
     }
@@ -1053,6 +1097,8 @@ wss.on('connection', (ws, req, url) => {
   ws.on('close', () => {
     viewers.delete(ws)
     bridges.delete(ws)
+    metricWsConnectedClients.set({ role: 'viewer' }, viewers.size)
+    metricWsConnectedClients.set({ role: 'bridge' }, bridges.size)
     room.viewers.delete(ws)
     room.bridges.delete(ws)
     if (ws.clientId) {
@@ -1096,6 +1142,7 @@ const heartbeat = setInterval(() => {
     ) {
       clearInterval(room.flushTimer)
       sessions.delete(room.sessionId)
+      metricSessionActiveCount.set(sessions.size)
     }
   }
 }, 5000)
@@ -1112,11 +1159,17 @@ server.listen(config.port, config.host, () => {
 process.on('SIGINT', () => {
   clearInterval(heartbeat)
   trainer.saveModel()
-  server.close(() => process.exit(0))
+  server.close(async () => {
+    await otel.shutdown()
+    process.exit(0)
+  })
 })
 
 process.on('SIGTERM', () => {
   clearInterval(heartbeat)
   trainer.saveModel()
-  server.close(() => process.exit(0))
+  server.close(async () => {
+    await otel.shutdown()
+    process.exit(0)
+  })
 })

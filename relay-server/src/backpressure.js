@@ -22,7 +22,7 @@ export class BackpressureQueue {
   }
 
   /** Enqueue a pre-serialized frame. Drops oldest if over limit. */
-  enqueue(serialized) {
+  enqueue(serialized, isBinary = false) {
     if (this.ws.readyState !== this.ws.OPEN) return
 
     if (this.queue.length >= this.maxQueue) {
@@ -34,7 +34,7 @@ export class BackpressureQueue {
       }
     }
 
-    this.queue.push(serialized)
+    this.queue.push({ serialized, isBinary })
     this._drain()
   }
 
@@ -57,7 +57,7 @@ export class BackpressureQueue {
 
         const frame = this.queue.shift()
         try {
-          this.ws.send(frame)
+          this.ws.send(frame.serialized, { binary: frame.isBinary })
           this.sent++
         } catch {
           // connection lost mid-drain — discard rest
